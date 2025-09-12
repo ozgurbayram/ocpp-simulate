@@ -76,6 +76,10 @@ export const useBatteryState = () => {
   return {
     batteryState,
     setBatteryState,
+    setSoc: (value: number) => {
+      const v = Math.max(0, Math.min(100, Math.round(value)));
+      setBatteryState(prev => ({ ...prev, soc: v }));
+    },
     beginCharge,
     endCharge,
     setMeterStart,

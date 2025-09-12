@@ -5,11 +5,15 @@ import { useFormPersistence } from '../hooks/useFormPersistence';
 import { useOCPPMessages } from '../hooks/useOCPPMessages';
 import { useWebSocket } from '../hooks/useWebSocket';
 // import { createOCPPHandlers } from '../services/ocppHandlers';
-import { handleInboundFrame, type HandlerContext } from '../services/inboundDispatcher';
+import {
+  handleInboundFrame,
+  type HandlerContext,
+} from '../services/inboundDispatcher';
 import type { ConnectionConfig, OCPPFrame } from '../types/ocpp';
 import { parseOCPPFrame } from '../utils/ocpp';
 import { BatteryPanel } from './BatteryPanel';
 import { ConnectionPanel } from './ConnectionPanel';
+import ConnectorsPanel from './ConnectorsPanel';
 import { ControlsPanel } from './ControlsPanel';
 import { NetworkTraffic } from './NetworkTraffic';
 
@@ -43,6 +47,7 @@ export default function OCPPSimulator() {
     beginCharge,
     endCharge,
     setMeterStart,
+    setSoc,
     cleanup,
   } = useBatteryState();
   const { saveToStorage, loadFromStorage } = useFormPersistence(
@@ -50,6 +55,15 @@ export default function OCPPSimulator() {
     batteryState,
     frames
   );
+
+  // OCPP statuses for CP and connectors
+  const [cpStatus, setCpStatus] = useState<{
+    status: string;
+    errorCode: string;
+  }>({ status: 'Available', errorCode: 'NoError' });
+  const [connectorStatuses, setConnectorStatuses] = useState<
+    Record<number, { status: string; errorCode: string }>
+  >({});
 
   const addFrame = useCallback(
     (dir: 'in' | 'out', raw: any[]) => {
@@ -100,6 +114,8 @@ export default function OCPPSimulator() {
     const transactionId =
       res?.transactionId || Math.floor(Math.random() * 100000);
     setCurrentTransactionId(transactionId);
+    // OCPP 1.6: after StartTransaction, report Charging status
+    await statusNotification('Charging', 'NoError');
     beginCharge(() => {
       call('MeterValues', {
         connectorId,
@@ -273,6 +289,11 @@ export default function OCPPSimulator() {
   const sendHeartbeat = () => call('Heartbeat', {});
 
   const statusNotification = (status = 'Available', errorCode = 'NoError') => {
+    // Update local UI status for active connector
+    setConnectorStatuses((prev) => ({
+      ...prev,
+      [connectorId]: { status, errorCode },
+    }));
     return call('StatusNotification', {
       connectorId,
       errorCode,
@@ -309,6 +330,9 @@ export default function OCPPSimulator() {
         if (newStatus === 'disconnected') {
           if (heartbeatTimer.current) clearInterval(heartbeatTimer.current);
           endCharge();
+          setCpStatus({ status: 'Unavailable', errorCode: 'NoError' });
+        } else if (newStatus === 'connected') {
+          setCpStatus({ status: 'Available', errorCode: 'NoError' });
         }
       });
     } catch (e) {
@@ -334,8 +358,13 @@ export default function OCPPSimulator() {
 
   return (
     <div className='min-h-screen bg-slate-950 text-slate-100'>
-      <header className='p-4 bg-slate-800 border-b border-slate-600 flex items-center gap-3'>
-        <h1 className='text-base font-semibold'>OCPP 1.6J CP Simulator — v3</h1>
+      <header className='p-4 bg-slate-800 border-b border-slate-600 flex flex-row  gap-3'>
+        <div className='flex items-center gap-3'>
+          <img src='../../public/evs-logo.png' width={40} height={40} />
+          <h1 className='text-lg font-semibold'>
+            OCPP Şarj İstasyonu Simülatörü
+          </h1>
+        </div>
         <span
           className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs border ${
             status === 'connected'
@@ -381,7 +410,15 @@ export default function OCPPSimulator() {
           />
         </div>
 
-        <BatteryPanel batteryState={batteryState} connectorId={connectorId} />
+        <BatteryPanel
+          batteryState={batteryState}
+          connectorId={connectorId}
+          onSetSoc={setSoc}
+        />
+        <ConnectorsPanel
+          cpStatus={cpStatus}
+          connectorStatuses={connectorStatuses}
+        />
       </div>
 
       <div className='px-3 pb-3'>

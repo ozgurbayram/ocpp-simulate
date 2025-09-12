@@ -1,8 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { ConnectionConfig, ConnectionStatus, OCPPFrame } from '../types/ocpp';
+import { parseOCPPFrame } from '../utils/ocpp';
 
 export const useWebSocket = () => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
+  const socketRef = useRef<WebSocket | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
 
   const makeUrl = useCallback((config: ConnectionConfig): string => {
@@ -30,6 +32,7 @@ export const useWebSocket = () => {
     const url = makeUrl(config);
     const { protocol } = config;
     const ws = new WebSocket(url, [protocol]);
+    socketRef.current = ws;
 
     ws.onopen = () => {
       setSocket(ws);
@@ -46,6 +49,7 @@ export const useWebSocket = () => {
     };
 
     ws.onclose = (ev) => {
+      socketRef.current = null;
       setSocket(null);
       setStatus('disconnected');
       onConnectionChange('disconnected');
@@ -60,6 +64,7 @@ export const useWebSocket = () => {
     };
 
     ws.onerror = (e) => {
+      // keep ref; socket may still be open
       onMessage({
         ts: new Date().toISOString(),
         dir: 'in',
@@ -73,12 +78,13 @@ export const useWebSocket = () => {
     ws.onmessage = (ev) => {
       try {
         const frame = JSON.parse(ev.data);
+        const meta = parseOCPPFrame(frame);
         onMessage({
           ts: new Date().toISOString(),
           dir: 'in',
-          type: 'CALL',
-          action: '',
-          id: '',
+          type: (meta.type || 'CALL') as OCPPFrame['type'],
+          action: meta.action,
+          id: meta.id,
           raw: frame
         });
       } catch (err) {
@@ -95,17 +101,19 @@ export const useWebSocket = () => {
   }, [makeUrl]);
 
   const disconnect = useCallback(() => {
-    if (socket) {
-      socket.close(1000, 'Client disconnect');
+    const s = socketRef.current;
+    if (s) {
+      s.close(1000, 'Client disconnect');
     }
-  }, [socket]);
+  }, []);
 
   const send = useCallback((frame: any[]) => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
+    const s = socketRef.current;
+    if (!s || s.readyState !== WebSocket.OPEN) {
       throw new Error('WebSocket not open');
     }
-    socket.send(JSON.stringify(frame));
-  }, [socket]);
+    s.send(JSON.stringify(frame));
+  }, []);
 
   return {
     socket,

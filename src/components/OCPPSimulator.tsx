@@ -4,8 +4,10 @@ import { useBatteryState } from '../hooks/useBatteryState';
 import { useFormPersistence } from '../hooks/useFormPersistence';
 import { useOCPPMessages } from '../hooks/useOCPPMessages';
 import { useWebSocket } from '../hooks/useWebSocket';
-import { createOCPPHandlers } from '../services/ocppHandlers';
+// import { createOCPPHandlers } from '../services/ocppHandlers';
+import { handleInboundFrame, type HandlerContext } from '../services/inboundDispatcher';
 import type { ConnectionConfig, OCPPFrame } from '../types/ocpp';
+import { parseOCPPFrame } from '../utils/ocpp';
 import { BatteryPanel } from './BatteryPanel';
 import { ConnectionPanel } from './ConnectionPanel';
 import { ControlsPanel } from './ControlsPanel';
@@ -14,7 +16,9 @@ import { NetworkTraffic } from './NetworkTraffic';
 export default function OCPPSimulator() {
   const [frames, setFrames] = useState<OCPPFrame[]>([]);
   const [paused, setPaused] = useState(false);
-  const [currentTransactionId, setCurrentTransactionId] = useState<number | null>(null);
+  const [currentTransactionId, setCurrentTransactionId] = useState<
+    number | null
+  >(null);
 
   const form = useForm<ConnectionConfig>({
     defaultValues: {
@@ -33,12 +37,32 @@ export default function OCPPSimulator() {
   const heartbeatTimer = useRef<number | null>(null);
 
   const { status, connect, disconnect, send } = useWebSocket();
-  const { batteryState, setBatteryState, beginCharge, endCharge, setMeterStart, cleanup } = useBatteryState();
-  const { saveToStorage, loadFromStorage } = useFormPersistence(form, batteryState, frames);
+  const {
+    batteryState,
+    setBatteryState,
+    beginCharge,
+    endCharge,
+    setMeterStart,
+    cleanup,
+  } = useBatteryState();
+  const { saveToStorage, loadFromStorage } = useFormPersistence(
+    form,
+    batteryState,
+    frames
+  );
 
-  const addFrame = useCallback((dir: 'in' | 'out', raw: any[]) => {
+  const addFrame = useCallback(
+    (dir: 'in' | 'out', raw: any[]) => {
       const ts = new Date();
-    const rec: OCPPFrame = { ts: ts.toISOString(), dir, type: 'CALL', action: '', id: '', raw };
+      const meta = parseOCPPFrame(raw);
+      const rec: OCPPFrame = {
+        ts: ts.toISOString(),
+        dir,
+        type: (meta.type || 'CALL') as OCPPFrame['type'],
+        action: meta.action,
+        id: meta.id,
+        raw,
+      };
 
       if (!paused) {
         setFrames((prev) => {
@@ -46,14 +70,17 @@ export default function OCPPSimulator() {
           return newFrames.length > 500 ? newFrames.slice(0, 500) : newFrames;
         });
       }
-  }, [paused]);
+    },
+    [paused]
+  );
 
-  const { call, reply, replyError, handleIncomingMessage } = useOCPPMessages(send, addFrame);
+  const { call, handleIncomingMessage } = useOCPPMessages(send, addFrame);
 
   // Load from localStorage on mount
   useEffect(() => {
     const { battery, frames: savedFrames } = loadFromStorage();
-    if (battery.soc !== undefined) setBatteryState(prev => ({ ...prev, ...battery }));
+    if (battery.soc !== undefined)
+      setBatteryState((prev) => ({ ...prev, ...battery }));
     if (savedFrames) setFrames(savedFrames);
   }, [loadFromStorage, setBatteryState]);
 
@@ -70,7 +97,8 @@ export default function OCPPSimulator() {
       timestamp: ts,
     });
 
-    const transactionId = res?.transactionId || Math.floor(Math.random() * 100000);
+    const transactionId =
+      res?.transactionId || Math.floor(Math.random() * 100000);
     setCurrentTransactionId(transactionId);
     beginCharge(() => {
       call('MeterValues', {
@@ -113,22 +141,116 @@ export default function OCPPSimulator() {
     return res;
   };
 
-  const handlers = createOCPPHandlers(call, reply, replyError, startTransaction, stopTransaction);
+  // Inbound dispatcher context
+  const ctx: HandlerContext = {
+    nowISO: () => new Date().toISOString(),
+    sendCall: (action, payload) => call(action, payload),
+    setAvailability: async (_connId, operative) => {
+      // Reflect availability via a StatusNotification
+      await statusNotification(
+        operative ? 'Available' : 'Unavailable',
+        'NoError'
+      );
+    },
+    applyChargingProfile: (_connectorId, _profile) => {
+      // No-op demo: accept and rely on CSMS limits if any
+    },
+    clearChargingProfile: (_filter) => {
+      // No-op demo
+    },
+    getCompositeSchedule: (_connectorId, duration, unit) => {
+      const chargingRateUnit = unit || 'A';
+      return {
+        duration,
+        chargingRateUnit,
+        chargingSchedulePeriod: [
+          { startPeriod: 0, limit: chargingRateUnit === 'W' ? 7400 : 32 },
+        ],
+      };
+    },
+    reserve: (_args) => 'Accepted',
+    cancelReservation: (_reservationId) => 'Accepted',
+    unlock: (_connectorId) => 'Unlocked',
+    updateFirmware: ({}) => {
+      // Send a simple firmware status lifecycle
+      setTimeout(() => {
+        call('FirmwareStatusNotification', { status: 'Downloading' }).catch(
+          () => {}
+        );
+      }, 0);
+      setTimeout(() => {
+        call('FirmwareStatusNotification', { status: 'Downloaded' }).catch(
+          () => {}
+        );
+      }, 1500);
+      setTimeout(() => {
+        call('FirmwareStatusNotification', { status: 'Installing' }).catch(
+          () => {}
+        );
+      }, 3000);
+      setTimeout(() => {
+        call('FirmwareStatusNotification', { status: 'Installed' }).catch(
+          () => {}
+        );
+      }, 4500);
+    },
+    getDiagnostics: async (_args) => {
+      // Simulate diagnostics collection
+      return 'diagnostics.log';
+    },
+    setLocalList: (_args) => 'Accepted',
+    getLocalListVersion: () => 1,
+    changeConfig: (key, value) => {
+      if (key === 'HeartbeatInterval') {
+        const iv = Math.max(5, parseInt(value || '60', 10) || 60);
+        if (heartbeatTimer.current) clearInterval(heartbeatTimer.current);
+        heartbeatTimer.current = setInterval(() => {
+          call('Heartbeat', {}).catch(() => {});
+        }, iv * 1000);
+        return 'Accepted';
+      }
+      return 'Accepted';
+    },
+    getConfig: (keys) => {
+      const all = [{ key: 'HeartbeatInterval', readonly: false, value: '60' }];
+      const selected =
+        keys && keys.length ? all.filter((c) => keys.includes(c.key)) : all;
+      const unknownKey = keys
+        ? keys.filter((k) => !all.find((c) => c.key === k))
+        : [];
+      return { configurationKey: selected, unknownKey };
+    },
+    canStartTx: () => true,
+    startLocalFlow: async ({ connectorId: _cId, idTag }) => {
+      const id = idTag || 'DEMO';
+      await authorize(id);
+      await statusNotification('Preparing', 'NoError');
+      await startTransaction(id);
+    },
+    stopLocalFlow: async ({ transactionId: _transactionId }) => {
+      await stopTransaction('REMOTE');
+      await statusNotification('Available', 'NoError');
+    },
+  };
 
   // OCPP message handling
-  const handleMessage = useCallback(async (frame: OCPPFrame) => {
-    addFrame(frame.dir, frame.raw);
-    
-    const message = handleIncomingMessage(frame);
-    if (message) {
-      const handler = handlers[message.action as keyof typeof handlers];
-      if (handler) {
-        await handler(message.id, message.payload);
-      } else {
-        replyError(message.id, 'NotImplemented', `Action ${message.action} not handled`, {});
+  const handleMessage = useCallback(
+    async (frame: OCPPFrame) => {
+      addFrame(frame.dir, frame.raw);
+
+      // Resolve pending for CALLRESULT/CALLERROR; return CALL info if any
+      const msg = handleIncomingMessage(frame);
+      if (msg && Array.isArray(frame.raw) && frame.raw[0] === 2) {
+        // Inbound CALL -> dispatch and reply
+        const replyFrame = await handleInboundFrame(frame.raw as any, ctx);
+        if (replyFrame) {
+          send(replyFrame);
+          addFrame('out', replyFrame as any);
+        }
       }
-    }
-  }, [addFrame, handleIncomingMessage, handlers, replyError]);
+    },
+    [addFrame, handleIncomingMessage, ctx, send]
+  );
 
   // OCPP functions
   const sendBoot = async () => {
@@ -259,6 +381,10 @@ export default function OCPPSimulator() {
           />
         </div>
 
+        <BatteryPanel batteryState={batteryState} connectorId={connectorId} />
+      </div>
+
+      <div className='px-3 pb-3'>
         <NetworkTraffic
           frames={frames}
           paused={paused}
@@ -272,10 +398,7 @@ export default function OCPPSimulator() {
             saveToStorage();
           }}
         />
-          <BatteryPanel batteryState={batteryState} connectorId={connectorId} />
       </div>
-
-      <div className='px-3 pb-3'></div>
     </div>
   );
 }

@@ -16,6 +16,12 @@ export interface HandlerContext {
   nowISO(): string;
   // Send a CP-initiated CALL (e.g., BootNotification, StartTransaction...)
   sendCall(action: string, payload: any): Promise<any>;
+  // Live state accessors (provided by the app)
+  getActiveConnectorId?(): number | undefined;
+  getTransactionId?(): number | undefined;
+  getBattery?(): { soc: number; currentA: number; energyWh: number } | undefined;
+  getMeterValuesMeasurands?(): string[] | undefined;
+  getSoCMode?(): 'none' | 'ev' | undefined;
   // Optional helpers/state your app can inject
   log?(...args: any[]): void;
   getConnectorCount?(): number;
@@ -209,10 +215,30 @@ export const inboundHandlers: Record<string, InboundHandler> = {
         });
         break;
       case 'MeterValues':
-        await ctx.sendCall('MeterValues', {
-          connectorId: 1,
-          meterValue: [{ timestamp: ctx.nowISO(), sampledValue: [{ value: '12345', measurand: 'Energy.Active.Import.Register', unit: 'Wh' }] }]
-        });
+        {
+          const fmt6 = (n: number) => (Number(n).toFixed(6));
+          const connId = ctx.getActiveConnectorId?.() ?? 1;
+          const txId = ctx.getTransactionId?.();
+          const bat = ctx.getBattery?.();
+          const meas = (ctx.getMeterValuesMeasurands?.() ?? ['Energy.Active.Import.Register','Current.Offered','SoC']).map(String);
+          const socMode = ctx.getSoCMode?.() ?? 'ev';
+          const sampledValue: any[] = [];
+          if (bat?.currentA !== undefined && meas.includes('Current.Offered')) {
+            sampledValue.push({ context: 'Sample.Periodic', measurand: 'Current.Offered', unit: 'A', value: fmt6(bat.currentA) });
+          }
+          if (bat?.energyWh !== undefined && meas.includes('Energy.Active.Import.Register')) {
+            sampledValue.push({ context: 'Sample.Periodic', measurand: 'Energy.Active.Import.Register', unit: 'Wh', value: fmt6(bat.energyWh) });
+          }
+          if (bat?.soc !== undefined && meas.includes('SoC') && socMode === 'ev') {
+            sampledValue.push({ context: 'Sample.Periodic', location: 'EV', measurand: 'SoC', unit: 'Percent', value: fmt6(bat.soc) });
+          }
+          const payload: any = {
+            connectorId: connId,
+            meterValue: [{ timestamp: ctx.nowISO(), sampledValue }],
+          };
+          if (typeof txId === 'number') payload.transactionId = txId;
+          await ctx.sendCall('MeterValues', payload);
+        }
         break;
       default:
         break;

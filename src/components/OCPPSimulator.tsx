@@ -65,6 +65,15 @@ export default function OCPPSimulator() {
     Record<number, { status: string; errorCode: string }>
   >({});
 
+  // MeterValues configuration
+  const [meterValuesMeasurands, setMeterValuesMeasurands] = useState<string[]>([
+    'Energy.Active.Import.Register',
+    'Current.Offered',
+    'SoC',
+  ]);
+  // Two ways: send SoC from EV, or not at all
+  const [socMode, setSocMode] = useState<'none' | 'ev'>('ev');
+
   const addFrame = useCallback(
     (dir: 'in' | 'out', raw: any[]) => {
       const ts = new Date();
@@ -117,22 +126,8 @@ export default function OCPPSimulator() {
     // OCPP 1.6: after StartTransaction, report Charging status
     await statusNotification('Charging', 'NoError');
     beginCharge(() => {
-      call('MeterValues', {
-        connectorId,
-        transactionId: currentTransactionId || 0,
-        meterValue: [
-          {
-            timestamp: new Date().toISOString(),
-            sampledValue: [
-              {
-                value: String(Math.floor(batteryState.energyWh)),
-                measurand: 'Energy.Active.Import.Register',
-                unit: 'Wh',
-              },
-            ],
-          },
-        ],
-      }).catch(() => {});
+      const payload = buildMeterValuesPayload();
+      if (payload) call('MeterValues', payload).catch(() => {});
 
       if (batteryState.soc >= 100) {
         stopTransaction().catch(() => {});
@@ -161,6 +156,15 @@ export default function OCPPSimulator() {
   const ctx: HandlerContext = {
     nowISO: () => new Date().toISOString(),
     sendCall: (action, payload) => call(action, payload),
+    getActiveConnectorId: () => connectorId,
+    getTransactionId: () => (currentTransactionId == null ? undefined : currentTransactionId),
+    getBattery: () => ({
+      soc: batteryState.soc,
+      currentA: batteryState.current,
+      energyWh: batteryState.energyWh,
+    }),
+    getMeterValuesMeasurands: () => meterValuesMeasurands,
+    getSoCMode: () => socMode,
     setAvailability: async (_connId, operative) => {
       // Reflect availability via a StatusNotification
       await statusNotification(
@@ -224,11 +228,27 @@ export default function OCPPSimulator() {
           call('Heartbeat', {}).catch(() => {});
         }, iv * 1000);
         return 'Accepted';
+      } else if (key === 'MeterValuesSampledData') {
+        const parts = (value || '').split(',').map((s) => s.trim()).filter(Boolean);
+        const allowed = new Set(['Energy.Active.Import.Register','Current.Offered','SoC']);
+        const filtered = parts.filter((p) => allowed.has(p));
+        if (filtered.length === 0) return 'Rejected';
+        setMeterValuesMeasurands(filtered);
+        return 'Accepted';
+      } else if (key === 'SoCReporting') {
+        const v = (value || '').toLowerCase();
+        if (v === 'none') { setSocMode('none'); return 'Accepted'; }
+        if (v === 'ev') { setSocMode('ev'); return 'Accepted'; }
+        return 'Rejected';
       }
       return 'Accepted';
     },
     getConfig: (keys) => {
-      const all = [{ key: 'HeartbeatInterval', readonly: false, value: '60' }];
+      const all = [
+        { key: 'HeartbeatInterval', readonly: false, value: '60' },
+        { key: 'MeterValuesSampledData', readonly: false, value: meterValuesMeasurands.join(',') },
+        { key: 'SoCReporting', readonly: false, value: socMode === 'ev' ? 'EV' : 'None' },
+      ];
       const selected =
         keys && keys.length ? all.filter((c) => keys.includes(c.key)) : all;
       const unknownKey = keys
@@ -305,22 +325,27 @@ export default function OCPPSimulator() {
   const authorize = (idTag = 'DEMO1234') => call('Authorize', { idTag });
 
   const meterValues = () => {
-    return call('MeterValues', {
+    const payload = buildMeterValuesPayload();
+    return call('MeterValues', payload);
+  };
+
+  const buildMeterValuesPayload = () => {
+    const fmt6 = (n: number) => Number(n).toFixed(6);
+    const sampledValue: any[] = [];
+    if (meterValuesMeasurands.includes('Current.Offered')) {
+      sampledValue.push({ context: 'Sample.Periodic', measurand: 'Current.Offered', unit: 'A', value: fmt6(batteryState.current) });
+    }
+    if (meterValuesMeasurands.includes('Energy.Active.Import.Register')) {
+      sampledValue.push({ context: 'Sample.Periodic', measurand: 'Energy.Active.Import.Register', unit: 'Wh', value: fmt6(batteryState.energyWh) });
+    }
+    if (meterValuesMeasurands.includes('SoC') && socMode === 'ev') {
+      sampledValue.push({ context: 'Sample.Periodic', location: 'EV', measurand: 'SoC', unit: 'Percent', value: fmt6(batteryState.soc) });
+    }
+    return {
       connectorId,
-      transactionId: currentTransactionId || 0,
-      meterValue: [
-        {
-          timestamp: new Date().toISOString(),
-          sampledValue: [
-            {
-              value: String(Math.floor(batteryState.energyWh)),
-              measurand: 'Energy.Active.Import.Register',
-              unit: 'Wh',
-            },
-          ],
-        },
-      ],
-    });
+      ...(currentTransactionId != null ? { transactionId: currentTransactionId } : {}),
+      meterValue: [{ timestamp: new Date().toISOString(), sampledValue }],
+    };
   };
 
   // Connection handlers

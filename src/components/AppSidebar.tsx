@@ -27,9 +27,11 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
 } from '@/components/ui/sidebar';
-import { ChevronRight, Home, LogOut, Settings, User } from 'lucide-react';
+import { ChevronRight, Home, Settings, Plus } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
+import { useState } from 'react';
+import { ChargePointSheet } from '@/components/ocpp/ChargePointSheet';
 
 const data = {
   company: {
@@ -49,6 +51,7 @@ const data = {
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [cpSheetOpen, setCpSheetOpen] = useState(false);
   const handleLogout = () => {
     navigate('/login');
   };
@@ -160,47 +163,19 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size='lg'
-                  className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
-                >
-                  <div className='grid flex-1 text-left text-sm leading-tight'></div>
-                  <ChevronRight className='ml-auto size-4' />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className='w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg'
-                side='top'
-                align='start'
-                sideOffset={4}
-              >
-                <DropdownMenuLabel className='p-0 font-normal'>
-                  <div className='flex items-center gap-2 px-1 py-1.5 text-left text-sm'></div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => navigate('/profile')}>
-                    <User />
-                    Profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/settings')}>
-                    <Settings />
-                    Settings
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <SidebarMenuButton
+              tooltip='New Connection'
+              className='cursor-pointer flex items-center gap-2'
+              onClick={() => setCpSheetOpen(true)}
+            >
+              <Plus className='w-4 h-4' />
+              <span>New Connection</span>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
+      <ChargePointSheet open={cpSheetOpen} onOpenChange={setCpSheetOpen} />
     </Sidebar>
   );
 }

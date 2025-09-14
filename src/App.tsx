@@ -1,12 +1,17 @@
-import { BrowserRouter } from 'react-router-dom';
-import { DashboardLayout } from './components/DashboardLayout';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import ChargePointConnection from './pages/ChargePointConnection';
+import Dashboard from './pages/Dashboard';
 
 const App = () => {
   return (
     <BrowserRouter>
-      <DashboardLayout>
-        <div>Welcome to the EV Station Dashboard!</div>
-      </DashboardLayout>
+      <Routes>
+        <Route path='/' element={<Dashboard />} />
+        <Route
+          path='/charge-point-connection'
+          element={<ChargePointConnection />}
+        />
+      </Routes>
     </BrowserRouter>
   );
 };

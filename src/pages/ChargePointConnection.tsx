@@ -23,18 +23,35 @@ export default function ChargePointConnection() {
   const { connect, disconnect } = useOcppConnection(cp);
 
   // Frames for NetworkTraffic
-  const framesQuery = useFrames(cp.id);
+  const framesQuery = useFrames(cp?.id || id || '');
   const frames = useMemo(() => framesQuery.data || [], [framesQuery.data]);
-  const charging = useChargingStatus(cp.id);
+  const charging = useChargingStatus(cp?.id || id || '');
 
   // Auto-connect once when landing here if disconnected
   const didAutoconnect = useRef(false);
   useEffect(() => {
-    if (!didAutoconnect.current && cp.status === 'disconnected') {
+    if (!cp) return;
+    if (!didAutoconnect.current && cp.status !== 'connected') {
       didAutoconnect.current = true;
       connect.mutate({});
     }
-  }, [cp.status, connect]);
+  }, [cp, connect]);
+
+  if (!cp) {
+    return (
+      <DashboardLayout>
+        <div className='p-6'>
+          <div className='text-lg font-semibold'>Charge point not found</div>
+          <div className='mt-2 text-sm text-muted-foreground'>The ID "{id}" was not found in your local state. Go back to dashboard and select a charge point.</div>
+          <div className='mt-4'>
+            <Button size='sm' onClick={() => (window.location.hash = '#/')}>
+              Back to Dashboard
+            </Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const onTogglePause = () =>
     dispatch(setPaused({ id: cp.id, paused: !cp.paused }));

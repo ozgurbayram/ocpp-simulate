@@ -11,7 +11,17 @@ export function loadOcppState(): OcppStateShape | undefined {
   try {
     const raw = localStorage.getItem(OCPP_STATE_KEY)
     if (!raw) return undefined
-    return JSON.parse(raw)
+    const parsed = JSON.parse(raw)
+    // On reload, force connection statuses to 'disconnected' to avoid stale UI
+    if (parsed && parsed.items && typeof parsed.items === 'object') {
+      for (const k of Object.keys(parsed.items)) {
+        const item = parsed.items[k]
+        if (item && typeof item === 'object') {
+          item.status = 'disconnected'
+        }
+      }
+    }
+    return parsed
   } catch {
     return undefined
   }
@@ -52,4 +62,3 @@ export function saveFrames(id: string, frames: Frame[]) {
     // ignore
   }
 }
-

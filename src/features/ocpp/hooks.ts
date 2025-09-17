@@ -18,13 +18,14 @@ export function useFrames(cpId: string) {
   })
 }
 
-export function useOcppConnection(cp: ChargePoint) {
+export function useOcppConnection(cp?: ChargePoint) {
   const qc = useQueryClient()
   const dispatch = useDispatch()
 
   const connect = useMutation({
     // allow overriding config with form values on connect
     mutationFn: async (vars?: { config?: Partial<ConnectionConfig> }) => {
+      if (!cp) return
       dispatch(setStatus({ id: cp.id, status: 'connecting' }))
       const cfg = { ...cp.config, ...(vars?.config || {}) }
       const { csmsUrl, cpId, protocol } = cfg
@@ -39,6 +40,7 @@ export function useOcppConnection(cp: ChargePoint) {
 
   const disconnect = useMutation({
     mutationFn: async () => {
+      if (!cp) return
       disconnectWs(cp.id)
       dispatch(setStatus({ id: cp.id, status: 'disconnected' }))
     },
@@ -46,6 +48,7 @@ export function useOcppConnection(cp: ChargePoint) {
 
   const call = useMutation({
     mutationFn: async ({ action, payload }: { action: string; payload: any }) => {
+      if (!cp) return
       return await callAction(cp.id, action, payload)
     },
   })

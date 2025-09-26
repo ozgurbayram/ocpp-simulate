@@ -24,12 +24,21 @@ interface ChargingStatusDisplayProps {
   chargingData?: ChargingDataVM;
   isCharging: boolean;
   chargingType: 'AC' | 'DC';
+  deviceSettings?: {
+    deviceName?: string;
+    maxPowerKw?: number;
+    nominalVoltageV?: number;
+    maxCurrentA?: number;
+    connectors?: number;
+    socketType?: string[];
+  };
 }
 
 export function ChargingStatusDisplay({
   chargingData,
   isCharging,
   chargingType,
+  deviceSettings,
 }: ChargingStatusDisplayProps) {
   const latestMeterValue = chargingData?.meterValue?.[0];
   const sampledValues = latestMeterValue?.sampledValue || [];
@@ -49,7 +58,7 @@ export function ChargingStatusDisplay({
     : (currentA *
         (voltageValue ? Number.parseFloat(voltageValue.value) : 230)) /
       1000;
-  const voltageV = voltageValue ? Number.parseFloat(voltageValue.value) : 230;
+  const voltageV = voltageValue ? Number.parseFloat(voltageValue.value) : (deviceSettings?.nominalVoltageV || 230);
 
   // Mocked progress metrics
   const sessionStartEnergy = 1000;
@@ -95,6 +104,13 @@ export function ChargingStatusDisplay({
             <Badge variant='outline'>{chargingType}</Badge>
           </div>
 
+          {deviceSettings?.deviceName && (
+            <div className='flex items-center justify-between'>
+              <span className='text-sm font-medium'>Device</span>
+              <span className='text-sm font-mono'>{deviceSettings.deviceName}</span>
+            </div>
+          )}
+
           {chargingData?.transactionId && (
             <div className='flex items-center justify-between'>
               <span className='text-sm font-medium'>Transaction ID</span>
@@ -112,7 +128,9 @@ export function ChargingStatusDisplay({
                 <Gauge className='h-3 w-3 text-muted-foreground' />
                 <span className='text-xs text-muted-foreground'>Power</span>
               </div>
-              <div className='text-lg font-bold'>{powerKW.toFixed(1)} kW</div>
+              <div className='text-lg font-bold'>
+                {powerKW.toFixed(1)} / {deviceSettings?.maxPowerKw || 22} kW
+              </div>
             </div>
 
             <div className='space-y-1'>
@@ -120,7 +138,9 @@ export function ChargingStatusDisplay({
                 <Zap className='h-3 w-3 text-muted-foreground' />
                 <span className='text-xs text-muted-foreground'>Current</span>
               </div>
-              <div className='text-lg font-bold'>{currentA.toFixed(1)} A</div>
+              <div className='text-lg font-bold'>
+                {currentA.toFixed(1)} / {deviceSettings?.maxCurrentA || 32} A
+              </div>
             </div>
 
             <div className='space-y-1'>

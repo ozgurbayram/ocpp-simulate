@@ -2,22 +2,23 @@
 import ChargingStatusDisplay from '@/components/ChargingStatusDisplay';
 import ControlsPanel from '@/components/ControlsPanel';
 import { DashboardLayout } from '@/components/DashboardLayout';
+import { ChargePointAdvancedConfigSheet } from '@/components/ocpp/ChargePointAdvancedConfigSheet';
 import { ChargePointConfigSheet } from '@/components/ocpp/ChargePointConfigSheet';
 import { NetworkTraffic } from '@/components/ocpp/NetworkTraffic';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
 } from '@/components/ui/dialog';
 import { useFrames, useOcppConnection } from '@/features/ocpp/hooks';
 import { removeChargePoint, setPaused } from '@/features/ocpp/ocppSlice';
+import { loadDeviceSettings, saveFrames } from '@/features/ocpp/storage';
 import { disconnectWs } from '@/features/ocpp/wsManager';
-import { saveFrames } from '@/features/ocpp/storage';
 import { useChargingStatus } from '@/hooks/useChargingStatus';
 import type { RootState } from '@/store/store';
 import { useQueryClient } from '@tanstack/react-query';
@@ -32,6 +33,7 @@ export default function ChargePointConnection() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [configOpen, setConfigOpen] = useState(false);
+  const [advancedConfigOpen, setAdvancedConfigOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { connect, disconnect } = useOcppConnection(cp);
@@ -40,6 +42,26 @@ export default function ChargePointConnection() {
   const framesQuery = useFrames(cp?.id || id || '');
   const frames = useMemo(() => framesQuery.data || [], [framesQuery.data]);
   const charging = useChargingStatus(cp?.id || id || '');
+  
+  const defaultDeviceSettings = {
+    deviceName: `Sim\u00fclat\u00f6r-${cp?.id || id}`,
+    model: 'EVSE-Sim v1',
+    acdc: 'AC' as const,
+    connectors: 2,
+    maxPowerKw: 22,
+    nominalVoltageV: 400,
+    maxCurrentA: 32,
+    energyKwh: 0,
+    socketType: ['Type2', 'Type2'],
+    cableLock: [true, true],
+    hasRfid: true,
+    hasDisplay: true,
+    timezone: 'Europe/Istanbul',
+    phaseRotation: 'RST',
+    pricePerKwh: 0.25,
+  };
+  
+  const deviceSettings = cp?.chargePointConfig?.deviceSettings || loadDeviceSettings(cp?.id || id || '') || defaultDeviceSettings;
 
   // Auto-connect once when landing here if disconnected
   const didAutoconnect = useRef(false);
@@ -126,7 +148,10 @@ export default function ChargePointConnection() {
           </div>
           <div className='flex flex-wrap items-center justify-end gap-2'>
             <Button size='sm' variant='outline' onClick={() => setConfigOpen(true)}>
-              Edit
+              Basic Config
+            </Button>
+            <Button size='sm' variant='outline' onClick={() => setAdvancedConfigOpen(true)}>
+              Advanced Config
             </Button>
             <Button
               size='sm'
@@ -158,11 +183,12 @@ export default function ChargePointConnection() {
         <ChargingStatusDisplay
           chargingData={charging.chargingData}
           isCharging={charging.isCharging}
-          chargingType={charging.chargingType}
+          chargingType={deviceSettings.acdc || 'AC'}
+          deviceSettings={deviceSettings}
         />
 
         {/* Controls */}
-        <ControlsPanel cp={cp} />
+        <ControlsPanel cp={cp} deviceSettings={deviceSettings} />
 
         {/* Network traffic minimal view */}
         <NetworkTraffic
@@ -177,6 +203,11 @@ export default function ChargePointConnection() {
         chargePoint={cp}
         open={configOpen}
         onOpenChange={(next) => setConfigOpen(next)}
+      />
+      <ChargePointAdvancedConfigSheet
+        chargePoint={cp}
+        open={advancedConfigOpen}
+        onOpenChange={(next) => setAdvancedConfigOpen(next)}
       />
       <Dialog open={deleteOpen} onOpenChange={(next) => setDeleteOpen(next)}>
         <DialogContent>

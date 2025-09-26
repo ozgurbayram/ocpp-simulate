@@ -40,6 +40,18 @@ const ToggleBtn = ({
   </Button>
 );
 
+const formatCellValue = (value: unknown): string => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value instanceof Date) return value.toISOString();
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+};
+
 export const NetworkTraffic = ({
   frames,
   paused,
@@ -163,6 +175,8 @@ export const NetworkTraffic = ({
             <TableBody>
               {filteredFrames.map((frame, idx) => {
                 const isOpen = expanded.has(idx);
+                const actionLabel = formatCellValue(frame.action);
+                const idLabel = formatCellValue(frame.id);
                 return [
                   <TableRow
                     key={`row-${idx}`}
@@ -192,9 +206,9 @@ export const NetworkTraffic = ({
                         frame.type
                       ) && <Badge variant='outline'>{frame.type}</Badge>}
                     </TableCell>
-                    <TableCell className='text-xs'>{frame.action}</TableCell>
+                    <TableCell className='text-xs'>{actionLabel}</TableCell>
                     <TableCell className='font-mono text-xs'>
-                      {frame.id}
+                      {idLabel}
                     </TableCell>
                   </TableRow>,
                   isOpen ? (

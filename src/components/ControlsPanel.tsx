@@ -1,11 +1,14 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useOcppConnection } from '@/features/ocpp/hooks';
 import type { ChargePoint } from '@/features/ocpp/ocppSlice';
 import { setConnectorId, setTransactionId } from '@/features/ocpp/ocppSlice';
-import { useEffect } from 'react';
-import { getMeterForCp } from '@/services/meterModel';
 import { useBatteryState } from '@/hooks/useBatteryState';
+import { getMeterForCp } from '@/services/meterModel';
+import { Plug } from 'lucide-react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useDispatch } from 'react-redux';
 
@@ -17,19 +20,26 @@ type PanelForm = {
 
 interface ControlsPanelProps {
   cp: ChargePoint;
+  deviceSettings?: {
+    connectors?: number;
+    socketType?: string[];
+    deviceName?: string;
+  };
 }
 
-export const ControlsPanel = ({ cp }: ControlsPanelProps) => {
+export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
   const dispatch = useDispatch();
   const { call } = useOcppConnection(cp);
   const connected = cp.status === 'connected';
   const { beginCharge, endCharge, setMeterStart } = useBatteryState();
 
+  const maxConnectors = deviceSettings?.connectors || 2;
+  
   const form = useForm<PanelForm>({
     defaultValues: {
-      activeConnector: cp.runtime?.connectorId || 1,
+      activeConnector: Math.min(cp.runtime?.connectorId || 1, maxConnectors),
       vendor: 'EVS-Sim',
-      model: 'Browser-CP',
+      model: deviceSettings?.deviceName || 'Browser-CP',
     },
   });
 
@@ -175,7 +185,39 @@ export const ControlsPanel = ({ cp }: ControlsPanelProps) => {
 
   return (
     <Card>
+      <CardHeader>
+        <CardTitle className='flex items-center gap-2'>
+          <Plug className='h-5 w-5' />
+          OCPP Controls
+          {deviceSettings?.deviceName && (
+            <Badge variant='outline' className='ml-auto'>
+              {deviceSettings.deviceName}
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
       <CardContent className='grid gap-4'>
+        <div className='flex items-center gap-4'>
+          <div className='flex items-center gap-2'>
+            <span className='text-sm font-medium'>Connector:</span>
+            <Select
+              value={String(form.watch('activeConnector'))}
+              onValueChange={(value) => form.setValue('activeConnector', Number(value))}
+            >
+              <SelectTrigger className='w-24'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: maxConnectors }, (_, i) => i + 1).map((num) => (
+                  <SelectItem key={num} value={String(num)}>
+                    {num} {deviceSettings?.socketType?.[num - 1] && `(${deviceSettings.socketType[num - 1]})`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        
         <div className='flex flex-wrap gap-2'>
           <Button size='sm' onClick={onBoot} disabled={!connected}>
             BootNotification

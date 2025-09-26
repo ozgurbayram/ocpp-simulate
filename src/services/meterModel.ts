@@ -178,9 +178,15 @@ export function createMeterModel(cpId: string, ctx: Context, cfgPartial?: Partia
 
   async function emitIfNeeded() {
     try {
-      if (txId == null) return
+      if (txId == null) {
+        console.log('No txId for meter emission')
+        return
+      }
       const tx = ctx.getTransactionId?.()
-      if (typeof tx !== 'number' || tx !== txId) return
+      if (typeof tx !== 'number' || tx !== txId) {
+        console.log('Transaction ID mismatch:', { expected: txId, actual: tx })
+        return
+      }
       const connId = ctx.getActiveConnectorId?.() ?? connectorId ?? 1
       const timestamp = ctx.nowISO()
       const meas = (ctx.getMeterValuesMeasurands?.() ?? [
@@ -207,8 +213,11 @@ export function createMeterModel(cpId: string, ctx: Context, cfgPartial?: Partia
         meterValue: [{ timestamp, sampledValue }],
         transactionId: txId,
       }
+      console.log('Sending MeterValues:', payload)
       await ctx.sendCall('MeterValues', payload)
-    } catch {
+      console.log('MeterValues sent successfully')
+    } catch (err) {
+      console.log('Error sending MeterValues:', err)
       // Swallow send errors (e.g., WS closed)
     }
   }

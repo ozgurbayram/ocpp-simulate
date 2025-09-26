@@ -10,7 +10,7 @@ export interface OCPPFrame {
   type: 'CALL' | 'CALLRESULT' | 'CALLERROR' | 'OPEN' | 'CLOSE' | 'ERROR' | 'PARSE_ERR';
   action: string;
   id: string;
-  raw: any[];
+  raw: unknown[];
 }
 
 export interface ConnectionConfig {
@@ -34,7 +34,7 @@ export interface BatteryState {
 }
 
 export interface PendingRequest {
-  resolve: (value: any) => void;
+  resolve: (value: unknown) => void;
   reject: (error: Error) => void;
   action: string;
 }
@@ -45,4 +45,63 @@ export interface NetworkTrafficFilter {
   dir: 'all' | 'in' | 'out';
   kind: 'all' | 'CALL' | 'CALLRESULT' | 'CALLERROR';
   q: string;
+}
+
+export interface DeviceSettings {
+  deviceName: string;
+  model: string;
+  acdc: 'AC' | 'DC';
+  connectors: number;
+  maxPowerKw: number;
+  nominalVoltageV: number;
+  maxCurrentA: number;
+  energyKwh: number;
+  socketType: string[];
+  cableLock: boolean[];
+  hasRfid: boolean;
+  hasDisplay: boolean;
+  timezone: string;
+  phaseRotation: string;
+  pricePerKwh: number;
+}
+
+export interface OcppConfiguration {
+  HeartbeatInterval: number;
+  ConnectionTimeOut: number;
+  MeterValueSampleInterval: number;
+  ClockAlignedDataInterval: number;
+  MeterValuesSampledData: string;
+  MeterValuesAlignedData: string;
+  StopTxnSampledData: string;
+  StopTxnAlignedData: string;
+  AuthorizeRemoteTxRequests: boolean;
+  LocalAuthorizeOffline: boolean;
+  LocalPreAuthorize: boolean;
+  AuthorizationCacheEnabled: boolean;
+  AllowOfflineTxForUnknownId: boolean;
+  StopTransactionOnEVSideDisconnect: boolean;
+  StopTransactionOnInvalidId: boolean;
+  MaxEnergyOnInvalidId: number;
+  MinimumStatusDuration: number;
+  NumberOfConnectors: number;
+  TransactionMessageAttempts: number;
+  TransactionMessageRetryInterval: number;
+  UnlockConnectorOnEVSideDisconnect: boolean;
+  BlinkRepeat: number;
+  LightIntensity: number;
+  ConnectorPhaseRotation: string;
+  GetConfigurationMaxKeys: number;
+  SupportedFeatureProfiles: string;
+  Availability: string[];
+  IdTagWhitelist: string[];
+  WsSecure: boolean;
+  'BootNotification.intervalHint': number;
+  FirmwareVersion: string;
+  ChargeProfileEnabled: boolean;
+  ReservationEnabled: boolean;
+}
+
+export interface ChargePointConfiguration {
+  deviceSettings: DeviceSettings;
+  ocppConfig: OcppConfiguration;
 }

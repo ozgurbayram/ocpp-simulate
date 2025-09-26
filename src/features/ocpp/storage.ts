@@ -62,3 +62,42 @@ export function saveFrames(id: string, frames: Frame[]) {
     // ignore
   }
 }
+
+const DEVICE_CONFIG_KEY = (id: string) => `ocpp:device:${id}`
+const OCPP_CONFIG_KEY = (id: string) => `ocpp:config:${id}`
+
+export function loadDeviceSettings(id: string) {
+  try {
+    const raw = localStorage.getItem(DEVICE_CONFIG_KEY(id))
+    if (!raw) return undefined
+    return JSON.parse(raw)
+  } catch {
+    return undefined
+  }
+}
+
+export function saveDeviceSettings(id: string, settings: any) {
+  try {
+    localStorage.setItem(DEVICE_CONFIG_KEY(id), JSON.stringify(settings))
+  } catch {
+    // ignore
+  }
+}
+
+export function loadOcppConfiguration(id: string) {
+  try {
+    const raw = localStorage.getItem(OCPP_CONFIG_KEY(id))
+    if (!raw) return undefined
+    return JSON.parse(raw)
+  } catch {
+    return undefined
+  }
+}
+
+export function saveOcppConfiguration(id: string, config: any) {
+  try {
+    localStorage.setItem(OCPP_CONFIG_KEY(id), JSON.stringify(config))
+  } catch {
+    // ignore
+  }
+}

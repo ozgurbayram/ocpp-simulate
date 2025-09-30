@@ -1,5 +1,12 @@
+// @ts-ignore
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import type { OcppConfiguration } from '@/types/ocpp';
@@ -11,17 +18,26 @@ interface OcppConfigurationFormProps {
   onCancel: () => void;
 }
 
-export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConfigurationFormProps) {
+export function OcppConfigurationForm({
+  ocppConfig,
+  onSave,
+  onCancel,
+}: OcppConfigurationFormProps) {
   const form = useForm<OcppConfiguration>({
     defaultValues: ocppConfig,
   });
 
-  const { fields: availabilityFields, replace: replaceAvailability } = useFieldArray({
-    control: form.control,
-    name: 'Availability',
-  });
+  const { fields: availabilityFields, replace: replaceAvailability } =
+    useFieldArray({
+      control: form.control,
+      name: 'Availability',
+    });
 
-  const { fields: whitelistFields, append: appendWhitelist, remove: removeWhitelist } = useFieldArray({
+  const {
+    fields: whitelistFields,
+    append: appendWhitelist,
+    remove: removeWhitelist,
+  } = useFieldArray({
     control: form.control,
     name: 'IdTagWhitelist',
   });
@@ -31,20 +47,24 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
   });
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className='space-y-6'>
       <Card>
         <CardHeader>
           <CardTitle>Connection & Heartbeat</CardTitle>
-          <CardDescription>Configure connection timing and heartbeat settings</CardDescription>
+          <CardDescription>
+            Configure connection timing and heartbeat settings
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Heartbeat Interval (s)</label>
+        <CardContent className='space-y-4'>
+          <div className='grid grid-cols-3 gap-4'>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>
+                Heartbeat Interval (s)
+              </label>
               <Input
-                type="number"
-                min="10"
-                max="3600"
+                type='number'
+                min='10'
+                max='3600'
                 {...form.register('HeartbeatInterval', {
                   required: true,
                   valueAsNumber: true,
@@ -53,12 +73,14 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
                 })}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Connection Timeout (s)</label>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>
+                Connection Timeout (s)
+              </label>
               <Input
-                type="number"
-                min="30"
-                max="600"
+                type='number'
+                min='30'
+                max='600'
                 {...form.register('ConnectionTimeOut', {
                   required: true,
                   valueAsNumber: true,
@@ -67,12 +89,14 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
                 })}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Boot Notification Interval (s)</label>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>
+                Boot Notification Interval (s)
+              </label>
               <Input
-                type="number"
-                min="30"
-                max="3600"
+                type='number'
+                min='30'
+                max='3600'
                 {...form.register('BootNotification.intervalHint', {
                   required: true,
                   valueAsNumber: true,
@@ -88,16 +112,18 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
       <Card>
         <CardHeader>
           <CardTitle>Meter Values</CardTitle>
-          <CardDescription>Configure meter value sampling and reporting</CardDescription>
+          <CardDescription>
+            Configure meter value sampling and reporting
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Sample Interval (s)</label>
+        <CardContent className='space-y-4'>
+          <div className='grid grid-cols-2 gap-4'>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>Sample Interval (s)</label>
               <Input
-                type="number"
-                min="5"
-                max="900"
+                type='number'
+                min='5'
+                max='900'
                 {...form.register('MeterValueSampleInterval', {
                   required: true,
                   valueAsNumber: true,
@@ -106,12 +132,14 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
                 })}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Clock Aligned Interval (s)</label>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>
+                Clock Aligned Interval (s)
+              </label>
               <Input
-                type="number"
-                min="60"
-                max="3600"
+                type='number'
+                min='60'
+                max='3600'
                 {...form.register('ClockAlignedDataInterval', {
                   required: true,
                   valueAsNumber: true,
@@ -122,24 +150,24 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Sampled Data Types</label>
+          <div className='space-y-2'>
+            <label className='text-sm font-medium'>Sampled Data Types</label>
             <Input
               {...form.register('MeterValuesSampledData', { required: true })}
-              placeholder="Energy.Active.Import.Register,Voltage,Current"
+              placeholder='Energy.Active.Import.Register,Voltage,Current'
             />
-            <p className="text-xs text-muted-foreground">
+            <p className='text-xs text-muted-foreground'>
               Comma-separated list of measurands to sample
             </p>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Aligned Data Types</label>
+          <div className='space-y-2'>
+            <label className='text-sm font-medium'>Aligned Data Types</label>
             <Input
               {...form.register('MeterValuesAlignedData', { required: true })}
-              placeholder="Energy.Active.Import.Register"
+              placeholder='Energy.Active.Import.Register'
             />
-            <p className="text-xs text-muted-foreground">
+            <p className='text-xs text-muted-foreground'>
               Comma-separated list of measurands for clock-aligned data
             </p>
           </div>
@@ -149,16 +177,18 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
       <Card>
         <CardHeader>
           <CardTitle>Transaction Settings</CardTitle>
-          <CardDescription>Configure transaction behavior and stop conditions</CardDescription>
+          <CardDescription>
+            Configure transaction behavior and stop conditions
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Message Attempts</label>
+        <CardContent className='space-y-4'>
+          <div className='grid grid-cols-3 gap-4'>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>Message Attempts</label>
               <Input
-                type="number"
-                min="1"
-                max="10"
+                type='number'
+                min='1'
+                max='10'
                 {...form.register('TransactionMessageAttempts', {
                   required: true,
                   valueAsNumber: true,
@@ -167,12 +197,12 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
                 })}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Retry Interval (s)</label>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>Retry Interval (s)</label>
               <Input
-                type="number"
-                min="1"
-                max="300"
+                type='number'
+                min='1'
+                max='300'
                 {...form.register('TransactionMessageRetryInterval', {
                   required: true,
                   valueAsNumber: true,
@@ -181,11 +211,13 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
                 })}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Max Energy on Invalid ID (Wh)</label>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>
+                Max Energy on Invalid ID (Wh)
+              </label>
               <Input
-                type="number"
-                min="0"
+                type='number'
+                min='0'
                 {...form.register('MaxEnergyOnInvalidId', {
                   required: true,
                   valueAsNumber: true,
@@ -195,40 +227,52 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Stop Transaction Data</label>
+          <div className='space-y-2'>
+            <label className='text-sm font-medium'>Stop Transaction Data</label>
             <Input
               {...form.register('StopTxnSampledData', { required: true })}
-              placeholder="Power.Active.Import,Voltage"
+              placeholder='Power.Active.Import,Voltage'
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Stop Transaction Aligned Data</label>
+          <div className='space-y-2'>
+            <label className='text-sm font-medium'>
+              Stop Transaction Aligned Data
+            </label>
             <Input
               {...form.register('StopTxnAlignedData', { required: true })}
-              placeholder="Energy.Active.Import.Register"
+              placeholder='Energy.Active.Import.Register'
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center space-x-2">
+          <div className='grid grid-cols-2 gap-4'>
+            <div className='flex items-center space-x-2'>
               <Checkbox
-                id="StopTransactionOnEVSideDisconnect"
+                id='StopTransactionOnEVSideDisconnect'
                 checked={form.watch('StopTransactionOnEVSideDisconnect')}
-                onCheckedChange={(checked) => form.setValue('StopTransactionOnEVSideDisconnect', !!checked)}
+                onCheckedChange={(checked) =>
+                  form.setValue('StopTransactionOnEVSideDisconnect', !!checked)
+                }
               />
-              <label htmlFor="StopTransactionOnEVSideDisconnect" className="text-sm font-medium">
+              <label
+                htmlFor='StopTransactionOnEVSideDisconnect'
+                className='text-sm font-medium'
+              >
                 Stop on EV Disconnect
               </label>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className='flex items-center space-x-2'>
               <Checkbox
-                id="StopTransactionOnInvalidId"
+                id='StopTransactionOnInvalidId'
                 checked={form.watch('StopTransactionOnInvalidId')}
-                onCheckedChange={(checked) => form.setValue('StopTransactionOnInvalidId', !!checked)}
+                onCheckedChange={(checked) =>
+                  form.setValue('StopTransactionOnInvalidId', !!checked)
+                }
               />
-              <label htmlFor="StopTransactionOnInvalidId" className="text-sm font-medium">
+              <label
+                htmlFor='StopTransactionOnInvalidId'
+                className='text-sm font-medium'
+              >
                 Stop on Invalid ID
               </label>
             </div>
@@ -239,62 +283,89 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
       <Card>
         <CardHeader>
           <CardTitle>Authorization Settings</CardTitle>
-          <CardDescription>Configure authorization and authentication behavior</CardDescription>
+          <CardDescription>
+            Configure authorization and authentication behavior
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center space-x-2">
+        <CardContent className='space-y-4'>
+          <div className='grid grid-cols-2 gap-4'>
+            <div className='flex items-center space-x-2'>
               <Checkbox
-                id="AuthorizeRemoteTxRequests"
+                id='AuthorizeRemoteTxRequests'
                 checked={form.watch('AuthorizeRemoteTxRequests')}
-                onCheckedChange={(checked) => form.setValue('AuthorizeRemoteTxRequests', !!checked)}
+                onCheckedChange={(checked) =>
+                  form.setValue('AuthorizeRemoteTxRequests', !!checked)
+                }
               />
-              <label htmlFor="AuthorizeRemoteTxRequests" className="text-sm font-medium">
+              <label
+                htmlFor='AuthorizeRemoteTxRequests'
+                className='text-sm font-medium'
+              >
                 Authorize Remote Transactions
               </label>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className='flex items-center space-x-2'>
               <Checkbox
-                id="LocalAuthorizeOffline"
+                id='LocalAuthorizeOffline'
                 checked={form.watch('LocalAuthorizeOffline')}
-                onCheckedChange={(checked) => form.setValue('LocalAuthorizeOffline', !!checked)}
+                onCheckedChange={(checked) =>
+                  form.setValue('LocalAuthorizeOffline', !!checked)
+                }
               />
-              <label htmlFor="LocalAuthorizeOffline" className="text-sm font-medium">
+              <label
+                htmlFor='LocalAuthorizeOffline'
+                className='text-sm font-medium'
+              >
                 Local Authorize Offline
               </label>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center space-x-2">
+          <div className='grid grid-cols-2 gap-4'>
+            <div className='flex items-center space-x-2'>
               <Checkbox
-                id="LocalPreAuthorize"
+                id='LocalPreAuthorize'
                 checked={form.watch('LocalPreAuthorize')}
-                onCheckedChange={(checked) => form.setValue('LocalPreAuthorize', !!checked)}
+                onCheckedChange={(checked) =>
+                  form.setValue('LocalPreAuthorize', !!checked)
+                }
               />
-              <label htmlFor="LocalPreAuthorize" className="text-sm font-medium">
+              <label
+                htmlFor='LocalPreAuthorize'
+                className='text-sm font-medium'
+              >
                 Local Pre-Authorize
               </label>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className='flex items-center space-x-2'>
               <Checkbox
-                id="AuthorizationCacheEnabled"
+                id='AuthorizationCacheEnabled'
                 checked={form.watch('AuthorizationCacheEnabled')}
-                onCheckedChange={(checked) => form.setValue('AuthorizationCacheEnabled', !!checked)}
+                onCheckedChange={(checked) =>
+                  form.setValue('AuthorizationCacheEnabled', !!checked)
+                }
               />
-              <label htmlFor="AuthorizationCacheEnabled" className="text-sm font-medium">
+              <label
+                htmlFor='AuthorizationCacheEnabled'
+                className='text-sm font-medium'
+              >
                 Authorization Cache
               </label>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className='flex items-center space-x-2'>
             <Checkbox
-              id="AllowOfflineTxForUnknownId"
+              id='AllowOfflineTxForUnknownId'
               checked={form.watch('AllowOfflineTxForUnknownId')}
-              onCheckedChange={(checked) => form.setValue('AllowOfflineTxForUnknownId', !!checked)}
+              onCheckedChange={(checked) =>
+                form.setValue('AllowOfflineTxForUnknownId', !!checked)
+              }
             />
-            <label htmlFor="AllowOfflineTxForUnknownId" className="text-sm font-medium">
+            <label
+              htmlFor='AllowOfflineTxForUnknownId'
+              className='text-sm font-medium'
+            >
               Allow Offline Transactions for Unknown ID
             </label>
           </div>
@@ -304,16 +375,20 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
       <Card>
         <CardHeader>
           <CardTitle>System Configuration</CardTitle>
-          <CardDescription>Configure system behavior and capabilities</CardDescription>
+          <CardDescription>
+            Configure system behavior and capabilities
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Number of Connectors</label>
+        <CardContent className='space-y-4'>
+          <div className='grid grid-cols-3 gap-4'>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>
+                Number of Connectors
+              </label>
               <Input
-                type="number"
-                min="1"
-                max="4"
+                type='number'
+                min='1'
+                max='4'
                 {...form.register('NumberOfConnectors', {
                   required: true,
                   valueAsNumber: true,
@@ -322,12 +397,14 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
                 })}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Minimum Status Duration (s)</label>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>
+                Minimum Status Duration (s)
+              </label>
               <Input
-                type="number"
-                min="0"
-                max="300"
+                type='number'
+                min='0'
+                max='300'
                 {...form.register('MinimumStatusDuration', {
                   required: true,
                   valueAsNumber: true,
@@ -336,12 +413,12 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
                 })}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Get Config Max Keys</label>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>Get Config Max Keys</label>
               <Input
-                type="number"
-                min="10"
-                max="100"
+                type='number'
+                min='10'
+                max='100'
                 {...form.register('GetConfigurationMaxKeys', {
                   required: true,
                   valueAsNumber: true,
@@ -352,55 +429,77 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Supported Feature Profiles</label>
+          <div className='space-y-2'>
+            <label className='text-sm font-medium'>
+              Supported Feature Profiles
+            </label>
             <Input
               {...form.register('SupportedFeatureProfiles', { required: true })}
-              placeholder="Core,RemoteTrigger,Firmware,Reservation,LocalAuthList,MeterValues"
+              placeholder='Core,RemoteTrigger,Firmware,Reservation,LocalAuthList,MeterValues'
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Connector Phase Rotation</label>
+          <div className='space-y-2'>
+            <label className='text-sm font-medium'>
+              Connector Phase Rotation
+            </label>
             <Input
               {...form.register('ConnectorPhaseRotation', { required: true })}
-              placeholder="1.RST,2.RST"
+              placeholder='1.RST,2.RST'
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Firmware Version</label>
-            <Input {...form.register('FirmwareVersion', { required: true })} placeholder="1.0.0-web" />
+          <div className='space-y-2'>
+            <label className='text-sm font-medium'>Firmware Version</label>
+            <Input
+              {...form.register('FirmwareVersion', { required: true })}
+              placeholder='1.0.0-web'
+            />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="flex items-center space-x-2">
+          <div className='grid grid-cols-3 gap-4'>
+            <div className='flex items-center space-x-2'>
               <Checkbox
-                id="UnlockConnectorOnEVSideDisconnect"
+                id='UnlockConnectorOnEVSideDisconnect'
                 checked={form.watch('UnlockConnectorOnEVSideDisconnect')}
-                onCheckedChange={(checked) => form.setValue('UnlockConnectorOnEVSideDisconnect', !!checked)}
+                onCheckedChange={(checked) =>
+                  form.setValue('UnlockConnectorOnEVSideDisconnect', !!checked)
+                }
               />
-              <label htmlFor="UnlockConnectorOnEVSideDisconnect" className="text-sm font-medium">
+              <label
+                htmlFor='UnlockConnectorOnEVSideDisconnect'
+                className='text-sm font-medium'
+              >
                 Unlock on EV Disconnect
               </label>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className='flex items-center space-x-2'>
               <Checkbox
-                id="ChargeProfileEnabled"
+                id='ChargeProfileEnabled'
                 checked={form.watch('ChargeProfileEnabled')}
-                onCheckedChange={(checked) => form.setValue('ChargeProfileEnabled', !!checked)}
+                onCheckedChange={(checked) =>
+                  form.setValue('ChargeProfileEnabled', !!checked)
+                }
               />
-              <label htmlFor="ChargeProfileEnabled" className="text-sm font-medium">
+              <label
+                htmlFor='ChargeProfileEnabled'
+                className='text-sm font-medium'
+              >
                 Charge Profile Support
               </label>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className='flex items-center space-x-2'>
               <Checkbox
-                id="ReservationEnabled"
+                id='ReservationEnabled'
                 checked={form.watch('ReservationEnabled')}
-                onCheckedChange={(checked) => form.setValue('ReservationEnabled', !!checked)}
+                onCheckedChange={(checked) =>
+                  form.setValue('ReservationEnabled', !!checked)
+                }
               />
-              <label htmlFor="ReservationEnabled" className="text-sm font-medium">
+              <label
+                htmlFor='ReservationEnabled'
+                className='text-sm font-medium'
+              >
                 Reservation Support
               </label>
             </div>
@@ -413,14 +512,14 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
           <CardTitle>Display & LED Settings</CardTitle>
           <CardDescription>Configure display and LED behavior</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Blink Repeat Count</label>
+        <CardContent className='space-y-4'>
+          <div className='grid grid-cols-2 gap-4'>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>Blink Repeat Count</label>
               <Input
-                type="number"
-                min="1"
-                max="10"
+                type='number'
+                min='1'
+                max='10'
                 {...form.register('BlinkRepeat', {
                   required: true,
                   valueAsNumber: true,
@@ -429,12 +528,12 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
                 })}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Light Intensity (%)</label>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>Light Intensity (%)</label>
               <Input
-                type="number"
-                min="0"
-                max="100"
+                type='number'
+                min='0'
+                max='100'
                 {...form.register('LightIntensity', {
                   required: true,
                   valueAsNumber: true,
@@ -450,46 +549,50 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
       <Card>
         <CardHeader>
           <CardTitle>Connector Availability & ID Tags</CardTitle>
-          <CardDescription>Configure connector availability and authorized ID tags</CardDescription>
+          <CardDescription>
+            Configure connector availability and authorized ID tags
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Connector Availability</label>
+        <CardContent className='space-y-4'>
+          <div className='space-y-2'>
+            <label className='text-sm font-medium'>
+              Connector Availability
+            </label>
             {availabilityFields.map((field, index) => (
-              <div key={field.id} className="flex items-center space-x-2">
-                <span className="text-sm">Connector {index + 1}:</span>
+              <div key={field.id} className='flex items-center space-x-2'>
+                <span className='text-sm'>Connector {index + 1}:</span>
                 <Input
                   {...form.register(`Availability.${index}` as const)}
-                  placeholder="Operative"
-                  className="w-32"
+                  placeholder='Operative'
+                  className='w-32'
                 />
               </div>
             ))}
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Authorized ID Tags</label>
+          <div className='space-y-2'>
+            <div className='flex items-center justify-between'>
+              <label className='text-sm font-medium'>Authorized ID Tags</label>
               <Button
-                type="button"
-                variant="outline"
-                size="sm"
+                type='button'
+                variant='outline'
+                size='sm'
                 onClick={() => appendWhitelist('')}
               >
                 Add Tag
               </Button>
             </div>
             {whitelistFields.map((field, index) => (
-              <div key={field.id} className="flex items-center space-x-2">
+              <div key={field.id} className='flex items-center space-x-2'>
                 <Input
                   {...form.register(`IdTagWhitelist.${index}` as const)}
-                  placeholder="04A1B23C"
-                  className="flex-1"
+                  placeholder='04A1B23C'
+                  className='flex-1'
                 />
                 <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
+                  type='button'
+                  variant='outline'
+                  size='sm'
                   onClick={() => removeWhitelist(index)}
                 >
                   Remove
@@ -498,24 +601,26 @@ export function OcppConfigurationForm({ ocppConfig, onSave, onCancel }: OcppConf
             ))}
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className='flex items-center space-x-2'>
             <Checkbox
-              id="WsSecure"
+              id='WsSecure'
               checked={form.watch('WsSecure')}
-              onCheckedChange={(checked) => form.setValue('WsSecure', !!checked)}
+              onCheckedChange={(checked) =>
+                form.setValue('WsSecure', !!checked)
+              }
             />
-            <label htmlFor="WsSecure" className="text-sm font-medium">
+            <label htmlFor='WsSecure' className='text-sm font-medium'>
               WebSocket Secure (WSS)
             </label>
           </div>
         </CardContent>
       </Card>
 
-      <div className="flex justify-end space-x-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className='flex justify-end space-x-2'>
+        <Button type='button' variant='outline' onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit">Save OCPP Configuration</Button>
+        <Button type='submit'>Save OCPP Configuration</Button>
       </div>
     </form>
   );

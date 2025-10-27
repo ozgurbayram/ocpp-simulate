@@ -63,6 +63,7 @@ export interface DeviceSettings {
   timezone: string;
   phaseRotation: string;
   pricePerKwh: number;
+  batteryStartPercent: number;
 }
 
 export interface OcppConfiguration {

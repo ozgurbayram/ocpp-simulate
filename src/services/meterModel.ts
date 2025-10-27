@@ -11,6 +11,7 @@ export type MeterConfig = {
   samplePeriodSec: number // e.g., 5
   noiseKW?: number // +/- jitter
   virtualCapacityKWh?: number // default 60
+  offeredCurrentA?: number // max offered current
 }
 
 export type MeterState = {
@@ -53,6 +54,7 @@ const DEFAULTS: Required<MeterConfig> = {
   samplePeriodSec: 5,
   noiseKW: 0.5,
   virtualCapacityKWh: 60,
+  offeredCurrentA: 32,
 }
 
 function localKey(k: PersistKey) {
@@ -202,11 +204,35 @@ export function createMeterModel(cpId: string, ctx: Context, cfgPartial?: Partia
       const push = (m: string, unit: string, value: number, extra?: any) => {
         sampledValue.push({ context: 'Sample.Periodic', measurand: m, unit, value: String(value), ...(extra || {}) })
       }
-      if (meas.includes('Energy.Active.Import.Register')) push('Energy.Active.Import.Register', 'Wh', Math.floor(Math.max(0, st.energyWh)))
-      if (meas.includes('Power.Active.Import')) push('Power.Active.Import', 'W', Math.round(Math.max(0, st.powerKW * 1000)))
-      if (meas.includes('Current.Import')) push('Current.Import', 'A', Math.round(Math.max(0, st.currentA)))
-      if (meas.includes('Voltage')) push('Voltage', 'V', Math.round(Math.max(0, st.voltageV)))
-      if (meas.includes('SoC') && socMode === 'ev') sampledValue.push({ context: 'Sample.Periodic', location: 'EV', measurand: 'SoC', unit: 'Percent', value: String(Math.round(clamp(st.socPct, 0, 100))) })
+      if (meas.includes('Energy.Active.Import.Register')) {
+        push('Energy.Active.Import.Register', 'Wh', Math.max(0, Number(st.energyWh.toFixed(3))))
+      }
+      if (meas.includes('Power.Active.Import')) push('Power.Active.Import', 'W', Math.max(0, Number((st.powerKW * 1000).toFixed(0))))
+      if (meas.includes('Current.Import')) push('Current.Import', 'A', Math.max(0, Number(st.currentA.toFixed(3))))
+      if (meas.includes('Current.Offered')) {
+        const offered = Math.min(
+          Math.max(0, cfg.offeredCurrentA),
+          (cfg.stationMaxKW * 1000) / Math.max(1, st.voltageV || cfg.packVoltageMaxV)
+        )
+        push('Current.Offered', 'A', Number(offered.toFixed(3)))
+      }
+      if (meas.includes('Voltage')) push('Voltage', 'V', Math.max(0, Number(st.voltageV.toFixed(2))))
+      if (meas.includes('SoC')) {
+        const mode = String(socMode || '').toLowerCase()
+        const location =
+          mode === 'outlet' ? 'Outlet' :
+          mode === 'evse' ? 'EVSE' :
+          mode === 'none' ? undefined :
+          'EV'
+        const socSample: any = {
+          context: 'Sample.Periodic',
+          measurand: 'SoC',
+          unit: 'Percent',
+          value: String(Number(clamp(st.socPct, 0, 100).toFixed(3))),
+        }
+        if (location) socSample.location = location
+        sampledValue.push(socSample)
+      }
 
       const payload: any = {
         connectorId: connId,

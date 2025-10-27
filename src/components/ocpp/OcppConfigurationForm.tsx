@@ -27,12 +27,6 @@ export function OcppConfigurationForm({
     defaultValues: ocppConfig,
   });
 
-  const { fields: availabilityFields, replace: replaceAvailability } =
-    useFieldArray({
-      control: form.control,
-      name: 'Availability',
-    });
-
   const {
     fields: whitelistFields,
     append: appendWhitelist,
@@ -43,6 +37,12 @@ export function OcppConfigurationForm({
   });
 
   const handleSubmit = form.handleSubmit((data) => {
+    if (!Array.isArray(data.Availability) || data.Availability.length === 0) {
+      data.Availability = ['Operative'];
+    } else {
+      data.Availability = [data.Availability[0] || 'Operative'];
+    }
+    data.NumberOfConnectors = 1;
     onSave(data);
   });
 
@@ -385,15 +385,12 @@ export function OcppConfigurationForm({
               <label className='text-sm font-medium'>
                 Number of Connectors
               </label>
-              <Input
-                type='number'
-                min='1'
-                max='4'
+              <Input value='1' disabled />
+              <input
+                type='hidden'
+                defaultValue={1}
                 {...form.register('NumberOfConnectors', {
-                  required: true,
                   valueAsNumber: true,
-                  min: 1,
-                  max: 4,
                 })}
               />
             </div>
@@ -558,16 +555,14 @@ export function OcppConfigurationForm({
             <label className='text-sm font-medium'>
               Connector Availability
             </label>
-            {availabilityFields.map((field, index) => (
-              <div key={field.id} className='flex items-center space-x-2'>
-                <span className='text-sm'>Connector {index + 1}:</span>
-                <Input
-                  {...form.register(`Availability.${index}` as const)}
-                  placeholder='Operative'
-                  className='w-32'
-                />
-              </div>
-            ))}
+            <div className='flex items-center space-x-2'>
+              <span className='text-sm'>Connector 1:</span>
+              <Input
+                {...form.register('Availability.0')}
+                placeholder='Operative'
+                className='w-32'
+              />
+            </div>
           </div>
 
           <div className='space-y-2'>

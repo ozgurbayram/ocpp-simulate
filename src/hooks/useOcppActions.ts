@@ -67,28 +67,10 @@ const useOcppActions = (cp: ChargePoint) => {
     });
   };
 
-  const meterValues = () => {
-    const tx = cp.runtime?.transactionId;
-    const sampledValue = [
-      {
-        context: 'Sample.Periodic',
-        measurand: 'Energy.Active.Import.Register',
-        unit: 'Wh',
-        value: String(Math.floor(1000 + Math.random() * 500)),
-      },
-      {
-        context: 'Sample.Periodic',
-        measurand: 'Current.Offered',
-        unit: 'A',
-        value: String(16),
-      },
-    ];
-    const payload: any = {
-      connectorId: cp.runtime?.connectorId || 1,
-      meterValue: [{ timestamp: new Date().toISOString(), sampledValue }],
-    };
-    if (tx != null) payload.transactionId = tx;
-    return call.mutate({ action: 'MeterValues', payload });
+  const meterValues = async () => {
+    const meter = getMeterForCp(cp.id);
+    if (!meter) return;
+    await meter.tick().catch(() => {});
   };
 
   const stopTx = async () => {

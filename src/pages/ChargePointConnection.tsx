@@ -5,6 +5,7 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { ChargePointAdvancedConfigSheet } from '@/components/ocpp/ChargePointAdvancedConfigSheet';
 import { ChargePointConfigSheet } from '@/components/ocpp/ChargePointConfigSheet';
 import { NetworkTraffic } from '@/components/ocpp/NetworkTraffic';
+import { normalizeDeviceSettings } from '@/constants/chargePointDefaults';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -43,25 +44,15 @@ export default function ChargePointConnection() {
   const frames = useMemo(() => framesQuery.data || [], [framesQuery.data]);
   const charging = useChargingStatus(cp?.id || id || '');
   
-  const defaultDeviceSettings = {
-    deviceName: `Sim\u00fclat\u00f6r-${cp?.id || id}`,
-    model: 'EVSE-Sim v1',
-    acdc: 'AC' as const,
-    connectors: 2,
-    maxPowerKw: 22,
-    nominalVoltageV: 400,
-    maxCurrentA: 32,
-    energyKwh: 0,
-    socketType: ['Type2', 'Type2'],
-    cableLock: [true, true],
-    hasRfid: true,
-    hasDisplay: true,
-    timezone: 'Europe/Istanbul',
-    phaseRotation: 'RST',
-    pricePerKwh: 0.25,
-  };
-  
-  const deviceSettings = cp?.chargePointConfig?.deviceSettings || loadDeviceSettings(cp?.id || id || '') || defaultDeviceSettings;
+  const storedDeviceSettings = loadDeviceSettings(cp?.id || id || '');
+  const deviceSettings = normalizeDeviceSettings({
+    deviceName:
+      storedDeviceSettings?.deviceName ||
+      cp?.chargePointConfig?.deviceSettings?.deviceName ||
+      `Simülatör-${cp?.id || id}`,
+    ...(cp?.chargePointConfig?.deviceSettings || {}),
+    ...(storedDeviceSettings || {}),
+  });
 
   // Auto-connect once when landing here if disconnected
   const didAutoconnect = useRef(false);

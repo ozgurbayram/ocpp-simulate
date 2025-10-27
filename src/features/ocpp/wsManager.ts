@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { normalizeDeviceSettings, normalizeOcppConfiguration } from '@/constants/chargePointDefaults';
 import { handleInboundFrame } from '@/services/inboundDispatcher';
 import { ensureMeterForCp, getMeterForCp } from '@/services/meterModel';
 import { store } from '@/store/store';
@@ -58,26 +59,23 @@ export function connectWs(
         try {
           const state = store.getState();
           const cp = state.ocpp.items[id];
-          const defaultDeviceSettings = {
-            deviceName: `Simülatör-${id}`,
-            model: 'EVSE-Sim v1',
-            acdc: 'AC' as const,
-            connectors: 2,
-            maxPowerKw: 22,
-            nominalVoltageV: 400,
-            maxCurrentA: 32,
-            energyKwh: 0,
-            socketType: ['Type2', 'Type2'],
-            cableLock: [true, true],
-            hasRfid: true,
-            hasDisplay: true,
-            timezone: 'Europe/Istanbul',
-            phaseRotation: 'RST',
-            pricePerKwh: 0.25,
-          };
-          const deviceSettings = cp?.chargePointConfig?.deviceSettings || loadDeviceSettings(id) || defaultDeviceSettings;
-          const ocppConfig = cp?.chargePointConfig?.ocppConfig || loadOcppConfiguration(id) || {};
-          
+
+          const storedDeviceSettings = loadDeviceSettings(id);
+          const deviceSettings = normalizeDeviceSettings({
+            deviceName:
+              storedDeviceSettings?.deviceName ||
+              cp?.chargePointConfig?.deviceSettings?.deviceName ||
+              `Simülatör-${id}`,
+            ...(cp?.chargePointConfig?.deviceSettings || {}),
+            ...(storedDeviceSettings || {}),
+          });
+
+          const storedOcppConfig = loadOcppConfiguration(id);
+          const ocppConfig = normalizeOcppConfiguration({
+            ...(cp?.chargePointConfig?.ocppConfig || {}),
+            ...(storedOcppConfig || {}),
+          });
+
           const meter = ensureMeterForCp(
             id,
             {
@@ -86,28 +84,32 @@ export function connectWs(
               getActiveConnectorId: () => store.getState().ocpp.items[id]?.runtime?.connectorId,
               getTransactionId: () => store.getState().ocpp.items[id]?.runtime?.transactionId,
               getMeterValuesMeasurands: () => {
-                const sampledData = String(ocppConfig.MeterValuesSampledData || 'Energy.Active.Import.Register,Voltage,Current');
-                return sampledData.split(',').map(s => s.trim()).filter(Boolean);
+                const sampledData = String(
+                  ocppConfig.MeterValuesSampledData ||
+                    'Energy.Active.Import.Register,Power.Active.Import,Current.Offered,Voltage,SoC'
+                );
+                return sampledData.split(',').map((s) => s.trim()).filter(Boolean);
               },
-              getSoCMode: () => 'ev',
+              getSoCMode: () => (deviceSettings.acdc === 'DC' ? 'outlet' : 'ev'),
             } as any,
             {
               stationMaxKW: deviceSettings.maxPowerKw || 22,
               packVoltageMinV: Math.max(100, (deviceSettings.nominalVoltageV || 400) * 0.8),
               packVoltageMaxV: Math.min(1000, (deviceSettings.nominalVoltageV || 400) * 1.2),
-              socStartPct: 30,
-              samplePeriodSec: ocppConfig.MeterValueSampleInterval || 15,
+              socStartPct: deviceSettings.batteryStartPercent,
+              samplePeriodSec: Math.max(1, ocppConfig.MeterValueSampleInterval || 5),
               noiseKW: 0.5,
-              virtualCapacityKWh: 60,
+              virtualCapacityKWh: Math.max(10, deviceSettings.energyKwh || 60),
+              offeredCurrentA: deviceSettings.maxCurrentA || 32,
             }
-          )
+          );
           // Refresh interval if present
-          const prev = meterIntervals.get(id)
-          if (prev) clearInterval(prev)
+          const prev = meterIntervals.get(id);
+          if (prev) clearInterval(prev);
           const handle = setInterval(() => {
-            meter.tick().catch(() => {})
-          }, 5000)
-          meterIntervals.set(id, handle)
+            meter.tick().catch(() => {});
+          }, Math.max(1, ocppConfig.MeterValueSampleInterval || 5) * 1000);
+          meterIntervals.set(id, handle);
         } catch {}
         resolve();
       };
@@ -175,7 +177,11 @@ export function connectWs(
                   console.log('Starting meter for transaction:', { txid, conn, meterStart, cpId: id })
                   const meter = getMeterForCp(id)
                   if (meter) {
-                    meter.start(txid, conn, meterStart)
+                    const currentDeviceSettings = normalizeDeviceSettings({
+                      ...(store.getState().ocpp.items[id]?.chargePointConfig?.deviceSettings || {}),
+                      ...(loadDeviceSettings(id) || {}),
+                    })
+                    meter.start(txid, conn, meterStart, currentDeviceSettings.batteryStartPercent)
                     console.log('Meter started successfully')
                   } else {
                     console.log('No meter found for CP:', id)
@@ -215,18 +221,24 @@ export function connectWs(
                 getConfig: (keys?: string[]) => {
                   const state = store.getState();
                   const cp = state.ocpp.items[id];
-                  const ocppConfig = cp?.chargePointConfig?.ocppConfig || loadOcppConfiguration(id) || {};
-                  const deviceSettings = cp?.chargePointConfig?.deviceSettings || loadDeviceSettings(id) || {};
+                  const ocppConfig = normalizeOcppConfiguration({
+                    ...(cp?.chargePointConfig?.ocppConfig || {}),
+                    ...(loadOcppConfiguration(id) || {}),
+                  });
+                  const deviceSettings = normalizeDeviceSettings({
+                    ...(cp?.chargePointConfig?.deviceSettings || {}),
+                    ...(loadDeviceSettings(id) || {}),
+                  });
                   
                   const allConfig = [
-                    { key: 'HeartbeatInterval', readonly: false, value: String(ocppConfig.HeartbeatInterval || 60) },
-                    { key: 'ConnectionTimeOut', readonly: false, value: String(ocppConfig.ConnectionTimeOut || 120) },
-                    { key: 'MeterValueSampleInterval', readonly: false, value: String(ocppConfig.MeterValueSampleInterval || 15) },
-                    { key: 'ClockAlignedDataInterval', readonly: false, value: String(ocppConfig.ClockAlignedDataInterval || 300) },
-                    { key: 'MeterValuesSampledData', readonly: false, value: String(ocppConfig.MeterValuesSampledData || 'Energy.Active.Import.Register,Voltage,Current') },
-                    { key: 'MeterValuesAlignedData', readonly: false, value: String(ocppConfig.MeterValuesAlignedData || 'Energy.Active.Import.Register') },
-                    { key: 'StopTxnSampledData', readonly: false, value: String(ocppConfig.StopTxnSampledData || 'Power.Active.Import,Voltage') },
-                    { key: 'StopTxnAlignedData', readonly: false, value: String(ocppConfig.StopTxnAlignedData || 'Energy.Active.Import.Register') },
+                    { key: 'HeartbeatInterval', readonly: false, value: String(ocppConfig.HeartbeatInterval) },
+                    { key: 'ConnectionTimeOut', readonly: false, value: String(ocppConfig.ConnectionTimeOut) },
+                    { key: 'MeterValueSampleInterval', readonly: false, value: String(ocppConfig.MeterValueSampleInterval) },
+                    { key: 'ClockAlignedDataInterval', readonly: false, value: String(ocppConfig.ClockAlignedDataInterval) },
+                    { key: 'MeterValuesSampledData', readonly: false, value: String(ocppConfig.MeterValuesSampledData) },
+                    { key: 'MeterValuesAlignedData', readonly: false, value: String(ocppConfig.MeterValuesAlignedData) },
+                    { key: 'StopTxnSampledData', readonly: false, value: String(ocppConfig.StopTxnSampledData) },
+                    { key: 'StopTxnAlignedData', readonly: false, value: String(ocppConfig.StopTxnAlignedData) },
                     { key: 'AuthorizeRemoteTxRequests', readonly: false, value: String(ocppConfig.AuthorizeRemoteTxRequests !== false) },
                     { key: 'LocalAuthorizeOffline', readonly: false, value: String(ocppConfig.LocalAuthorizeOffline !== false) },
                     { key: 'LocalPreAuthorize', readonly: false, value: String(ocppConfig.LocalPreAuthorize === true) },
@@ -234,19 +246,19 @@ export function connectWs(
                     { key: 'AllowOfflineTxForUnknownId', readonly: false, value: String(ocppConfig.AllowOfflineTxForUnknownId === true) },
                     { key: 'StopTransactionOnEVSideDisconnect', readonly: false, value: String(ocppConfig.StopTransactionOnEVSideDisconnect !== false) },
                     { key: 'StopTransactionOnInvalidId', readonly: false, value: String(ocppConfig.StopTransactionOnInvalidId !== false) },
-                    { key: 'MaxEnergyOnInvalidId', readonly: false, value: String(ocppConfig.MaxEnergyOnInvalidId || 0) },
-                    { key: 'MinimumStatusDuration', readonly: false, value: String(ocppConfig.MinimumStatusDuration || 0) },
-                    { key: 'NumberOfConnectors', readonly: true, value: String(deviceSettings.connectors || ocppConfig.NumberOfConnectors || 2) },
-                    { key: 'TransactionMessageAttempts', readonly: false, value: String(ocppConfig.TransactionMessageAttempts || 3) },
-                    { key: 'TransactionMessageRetryInterval', readonly: false, value: String(ocppConfig.TransactionMessageRetryInterval || 10) },
+                    { key: 'MaxEnergyOnInvalidId', readonly: false, value: String(ocppConfig.MaxEnergyOnInvalidId) },
+                    { key: 'MinimumStatusDuration', readonly: false, value: String(ocppConfig.MinimumStatusDuration) },
+                    { key: 'NumberOfConnectors', readonly: true, value: String(deviceSettings.connectors) },
+                    { key: 'TransactionMessageAttempts', readonly: false, value: String(ocppConfig.TransactionMessageAttempts) },
+                    { key: 'TransactionMessageRetryInterval', readonly: false, value: String(ocppConfig.TransactionMessageRetryInterval) },
                     { key: 'UnlockConnectorOnEVSideDisconnect', readonly: false, value: String(ocppConfig.UnlockConnectorOnEVSideDisconnect !== false) },
-                    { key: 'BlinkRepeat', readonly: false, value: String(ocppConfig.BlinkRepeat || 3) },
-                    { key: 'LightIntensity', readonly: false, value: String(ocppConfig.LightIntensity || 50) },
-                    { key: 'ConnectorPhaseRotation', readonly: false, value: String(ocppConfig.ConnectorPhaseRotation || '1.RST,2.RST') },
-                    { key: 'GetConfigurationMaxKeys', readonly: true, value: String(ocppConfig.GetConfigurationMaxKeys || 50) },
-                    { key: 'SupportedFeatureProfiles', readonly: true, value: String(ocppConfig.SupportedFeatureProfiles || 'Core,RemoteTrigger,Firmware,Reservation,LocalAuthList,MeterValues') },
+                    { key: 'BlinkRepeat', readonly: false, value: String(ocppConfig.BlinkRepeat) },
+                    { key: 'LightIntensity', readonly: false, value: String(ocppConfig.LightIntensity) },
+                    { key: 'ConnectorPhaseRotation', readonly: false, value: String(ocppConfig.ConnectorPhaseRotation) },
+                    { key: 'GetConfigurationMaxKeys', readonly: true, value: String(ocppConfig.GetConfigurationMaxKeys) },
+                    { key: 'SupportedFeatureProfiles', readonly: true, value: String(ocppConfig.SupportedFeatureProfiles) },
                     { key: 'WsSecure', readonly: true, value: String(ocppConfig.WsSecure === true) },
-                    { key: 'FirmwareVersion', readonly: true, value: String(ocppConfig.FirmwareVersion || '1.0.0-web') },
+                    { key: 'FirmwareVersion', readonly: true, value: String(ocppConfig.FirmwareVersion) },
                     { key: 'ChargeProfileEnabled', readonly: true, value: String(ocppConfig.ChargeProfileEnabled === true) },
                     { key: 'ReservationEnabled', readonly: true, value: String(ocppConfig.ReservationEnabled === true) },
                   ];
@@ -261,9 +273,21 @@ export function connectWs(
                 getMeterValuesMeasurands: () => {
                   const state = store.getState();
                   const cp = state.ocpp.items[id];
-                  const ocppConfig = cp?.chargePointConfig?.ocppConfig || loadOcppConfiguration(id) || {};
-                  const sampledData = String(ocppConfig.MeterValuesSampledData || 'Energy.Active.Import.Register,Voltage,Current');
+                  const ocppConfig = normalizeOcppConfiguration({
+                    ...(cp?.chargePointConfig?.ocppConfig || {}),
+                    ...(loadOcppConfiguration(id) || {}),
+                  });
+                  const sampledData = String(ocppConfig.MeterValuesSampledData);
                   return sampledData.split(',').map(s => s.trim()).filter(Boolean);
+                },
+                getSoCMode: () => {
+                  const state = store.getState();
+                  const cpCurrent = state.ocpp.items[id];
+                  const ds = normalizeDeviceSettings({
+                    ...(cpCurrent?.chargePointConfig?.deviceSettings || {}),
+                    ...(loadDeviceSettings(id) || {}),
+                  });
+                  return ds.acdc === 'DC' ? 'outlet' : 'ev';
                 },
                 // Hooks for remote start/stop flows
                 startLocalFlow: async ({ connectorId, idTag }) => {

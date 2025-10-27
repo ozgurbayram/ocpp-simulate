@@ -60,6 +60,6 @@ export function useChargingStatus(cpId: string) {
     return { chargingData, isCharging }
   }, [framesQuery.data, connectorId, cp?.status, cp?.runtime?.transactionId])
 
-  return { chargingData: latest.chargingData, isCharging: latest.isCharging, chargingType: 'AC' as const }
+  const chargingType = (cp?.chargePointConfig?.deviceSettings?.acdc || 'AC') as 'AC' | 'DC'
+  return { chargingData: latest.chargingData, isCharging: latest.isCharging, chargingType }
 }
-

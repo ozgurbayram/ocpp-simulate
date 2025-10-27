@@ -1,7 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useOcppConnection } from '@/features/ocpp/hooks';
 import type { ChargePoint } from '@/features/ocpp/ocppSlice';
 import { setConnectorId, setTransactionId } from '@/features/ocpp/ocppSlice';
@@ -13,7 +12,6 @@ import { useForm } from 'react-hook-form';
 import { useDispatch } from 'react-redux';
 
 type PanelForm = {
-  activeConnector: number;
   vendor: string;
   model: string;
 };
@@ -33,25 +31,20 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
   const connected = cp.status === 'connected';
   const { beginCharge, endCharge, setMeterStart } = useBatteryState();
 
-  const maxConnectors = deviceSettings?.connectors || 2;
-  
   const form = useForm<PanelForm>({
     defaultValues: {
-      activeConnector: Math.min(cp.runtime?.connectorId || 1, maxConnectors),
       vendor: 'EVS-Sim',
       model: deviceSettings?.deviceName || 'Browser-CP',
     },
   });
 
-  // Keep connectorId synced to store
-  const connector = form.watch('activeConnector');
   useEffect(() => {
-    const current = cp.runtime?.connectorId || 1;
-    const next = connector || 1;
-    if (current !== next) {
-      dispatch(setConnectorId({ id: cp.id, connectorId: next }));
+    if ((cp.runtime?.connectorId || 1) !== 1) {
+      dispatch(setConnectorId({ id: cp.id, connectorId: 1 }));
     }
-  }, [connector, cp.id, cp.runtime?.connectorId, dispatch]);
+  }, [cp.id, cp.runtime?.connectorId, dispatch]);
+
+  const connectorId = 1;
 
   const onBoot = () => {
     const v = form.getValues();
@@ -69,11 +62,10 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
   };
 
   const onStatus = () => {
-    const v = form.getValues();
     call.mutate({
       action: 'StatusNotification',
       payload: {
-        connectorId: v.activeConnector || 1,
+        connectorId,
         status: 'Available',
         errorCode: 'NoError',
       },
@@ -88,7 +80,6 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
   };
 
   const onStartTx = async () => {
-    const v = form.getValues();
     const meterStart = Math.floor(1000 + Math.random() * 1000);
     try {
       await call.mutateAsync({
@@ -99,7 +90,7 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
     const res = await call.mutateAsync({
       action: 'StartTransaction',
       payload: {
-        connectorId: v.activeConnector || 1,
+        connectorId,
         idTag: cp.runtime?.idTag || 'DEMO1234',
         meterStart,
         timestamp: new Date().toISOString(),
@@ -113,7 +104,7 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
     await call.mutateAsync({
       action: 'StatusNotification',
       payload: {
-        connectorId: v.activeConnector || 1,
+        connectorId,
         status: 'Charging',
         errorCode: 'NoError',
       },
@@ -126,28 +117,8 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
   };
 
   const onMeterValues = () => {
-    const v = form.getValues();
-    const tx = cp.runtime?.transactionId;
-    const sampledValue = [
-      {
-        context: 'Sample.Periodic',
-        measurand: 'Energy.Active.Import.Register',
-        unit: 'Wh',
-        value: String(Math.floor(1000 + Math.random() * 500)),
-      },
-      {
-        context: 'Sample.Periodic',
-        measurand: 'Current.Offered',
-        unit: 'A',
-        value: String(16),
-      },
-    ];
-    const payload: any = {
-      connectorId: v.activeConnector || 1,
-      meterValue: [{ timestamp: new Date().toISOString(), sampledValue }],
-    };
-    if (tx != null) payload.transactionId = tx;
-    call.mutate({ action: 'MeterValues', payload });
+    const meter = getMeterForCp(cp.id);
+    meter?.tick().catch(() => {});
   };
 
   const onStopTx = async () => {
@@ -171,11 +142,10 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
       },
     });
     dispatch(setTransactionId({ id: cp.id, transactionId: undefined }));
-    const v = form.getValues();
     await call.mutateAsync({
       action: 'StatusNotification',
       payload: {
-        connectorId: v.activeConnector || 1,
+        connectorId,
         status: 'Available',
         errorCode: 'NoError',
       },
@@ -197,27 +167,13 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
         </CardTitle>
       </CardHeader>
       <CardContent className='grid gap-4'>
-        <div className='flex items-center gap-4'>
-          <div className='flex items-center gap-2'>
-            <span className='text-sm font-medium'>Connector:</span>
-            <Select
-              value={String(form.watch('activeConnector'))}
-              onValueChange={(value) => form.setValue('activeConnector', Number(value))}
-            >
-              <SelectTrigger className='w-24'>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: maxConnectors }, (_, i) => i + 1).map((num) => (
-                  <SelectItem key={num} value={String(num)}>
-                    {num} {deviceSettings?.socketType?.[num - 1] && `(${deviceSettings.socketType[num - 1]})`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className='flex items-center justify-between rounded border px-3 py-2 text-sm'>
+          <span className='font-medium'>Connector 1</span>
+          <span className='text-muted-foreground'>
+            {deviceSettings?.socketType?.[0] || 'Type2'} ({deviceSettings?.acdc || 'AC'})
+          </span>
         </div>
-        
+
         <div className='flex flex-wrap gap-2'>
           <Button size='sm' onClick={onBoot} disabled={!connected}>
             BootNotification

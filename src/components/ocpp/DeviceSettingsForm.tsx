@@ -16,9 +16,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { normalizeDeviceSettings } from '@/constants/chargePointDefaults';
 import type { DeviceSettings } from '@/types/ocpp';
 import { useEffect } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 
 interface DeviceSettingsFormProps {
   deviceSettings: DeviceSettings;
@@ -46,53 +47,25 @@ export function DeviceSettingsForm({
     defaultValues: deviceSettings,
   });
 
-  const { fields: socketTypeFields, replace: replaceSocketTypes } =
-    useFieldArray({
-      control: form.control,
-      name: 'socketType',
-    });
-
-  const { fields: cableLockFields, replace: replaceCableLocks } = useFieldArray(
-    {
-      control: form.control,
-      name: 'cableLock',
-    }
-  );
-
-  const connectorsCount = form.watch('connectors');
+  useEffect(() => {
+    form.reset(deviceSettings);
+  }, [deviceSettings, form]);
 
   useEffect(() => {
-    const currentSocketTypes = form.getValues('socketType');
-    const currentCableLocks = form.getValues('cableLock');
-
-    if (currentSocketTypes.length !== connectorsCount) {
-      const newSocketTypes = Array(connectorsCount).fill('Type2');
-      for (
-        let i = 0;
-        i < Math.min(currentSocketTypes.length, connectorsCount);
-        i++
-      ) {
-        newSocketTypes[i] = currentSocketTypes[i];
-      }
-      replaceSocketTypes(newSocketTypes);
-    }
-
-    if (currentCableLocks.length !== connectorsCount) {
-      const newCableLocks = Array(connectorsCount).fill(true);
-      for (
-        let i = 0;
-        i < Math.min(currentCableLocks.length, connectorsCount);
-        i++
-      ) {
-        newCableLocks[i] = currentCableLocks[i];
-      }
-      replaceCableLocks(newCableLocks);
-    }
-  }, [connectorsCount, replaceSocketTypes, replaceCableLocks, form]);
+    form.setValue('connectors', 1);
+  }, [form]);
 
   const handleSubmit = form.handleSubmit((data) => {
-    onSave(data);
+    const normalized = normalizeDeviceSettings({
+      ...data,
+      connectors: 1,
+      socketType: [data.socketType?.[0] || 'Type2'],
+      cableLock: [data.cableLock?.[0] ?? true],
+    });
+    onSave(normalized);
   });
+
+  const acdc = form.watch('acdc');
 
   return (
     <form onSubmit={handleSubmit} className='space-y-6'>
@@ -141,20 +114,8 @@ export function DeviceSettingsForm({
               </Select>
             </div>
             <div className='space-y-2'>
-              <label className='text-sm font-medium'>
-                Number of Connectors
-              </label>
-              <Input
-                type='number'
-                min='1'
-                max='4'
-                {...form.register('connectors', {
-                  required: true,
-                  valueAsNumber: true,
-                  min: 1,
-                  max: 4,
-                })}
-              />
+              <label className='text-sm font-medium'>Connector Count</label>
+              <Input value='1' disabled />
             </div>
           </div>
         </CardContent>
@@ -242,6 +203,28 @@ export function DeviceSettingsForm({
               </Select>
             </div>
           </div>
+
+          <div className='grid grid-cols-2 gap-4'>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>Battery Start (%)</label>
+              <Input
+                type='number'
+                min='0'
+                max='100'
+                {...form.register('batteryStartPercent', {
+                  required: true,
+                  valueAsNumber: true,
+                  min: 0,
+                  max: 100,
+                })}
+              />
+              <p className='text-xs text-muted-foreground'>
+                {acdc === 'DC'
+                  ? 'Controls the starting state-of-charge for DC charging simulations.'
+                  : 'Uses this value as the initial SoC reported in meter values.'}
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -253,47 +236,41 @@ export function DeviceSettingsForm({
           </CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>
-          {socketTypeFields.map((field, index) => (
-            <div key={field.id} className='grid grid-cols-3 gap-4 items-center'>
-              <div className='space-y-2'>
-                <label className='text-sm font-medium'>
-                  Connector {index + 1} Type
-                </label>
-                <Select
-                  value={form.watch(`socketType.${index}`)}
-                  onValueChange={(value) =>
-                    form.setValue(`socketType.${index}`, value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {socketTypeOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className='flex items-center space-x-2'>
-                <Checkbox
-                  id={`cableLock-${index}`}
-                  checked={form.watch(`cableLock.${index}`)}
-                  onCheckedChange={(checked) =>
-                    form.setValue(`cableLock.${index}`, !!checked)
-                  }
-                />
-                <label
-                  htmlFor={`cableLock-${index}`}
-                  className='text-sm font-medium'
-                >
-                  Cable Lock
-                </label>
-              </div>
+          <div className='grid grid-cols-3 gap-4 items-center'>
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>Connector Type</label>
+              <Select
+                value={form.watch('socketType.0')}
+                onValueChange={(value) => form.setValue('socketType.0', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {socketTypeOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          ))}
+            <div className='flex items-center space-x-2'>
+              <Checkbox
+                id='cableLock'
+                checked={form.watch('cableLock.0')}
+                onCheckedChange={(checked) =>
+                  form.setValue('cableLock.0', !!checked)
+                }
+              />
+              <label htmlFor='cableLock' className='text-sm font-medium'>
+                Cable Lock
+              </label>
+            </div>
+            <div className='text-sm text-muted-foreground'>
+              Single connector configuration is fixed for this simulator.
+            </div>
+          </div>
         </CardContent>
       </Card>
 

@@ -1,3 +1,4 @@
+import { normalizeDeviceSettings, normalizeOcppConfiguration } from '@/constants/chargePointDefaults'
 import type { ChargePointConfiguration, DeviceSettings, OcppConfiguration } from '@/types/ocpp'
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice, nanoid } from '@reduxjs/toolkit'
@@ -47,58 +48,13 @@ const ocppSlice = createSlice({
     addChargePoint: {
       prepare(partial?: Partial<ChargePoint>) {
         const id = nanoid(8)
-        const defaultDeviceSettings: DeviceSettings = {
+        const defaultDeviceSettings: DeviceSettings = normalizeDeviceSettings({
           deviceName: `Simülatör-${id}`,
-          model: 'EVSE-Sim v1',
-          acdc: 'AC',
-          connectors: 2,
-          maxPowerKw: 22,
-          nominalVoltageV: 400,
-          maxCurrentA: 32,
-          energyKwh: 0,
-          socketType: ['Type2', 'Type2'],
-          cableLock: [true, true],
-          hasRfid: true,
-          hasDisplay: true,
-          timezone: 'Europe/Istanbul',
-          phaseRotation: 'RST',
-          pricePerKwh: 0.25
-        }
-        const defaultOcppConfig: OcppConfiguration = {
-          HeartbeatInterval: 60,
-          ConnectionTimeOut: 120,
-          MeterValueSampleInterval: 15,
-          ClockAlignedDataInterval: 300,
-          MeterValuesSampledData: 'Energy.Active.Import.Register,Voltage,Current',
-          MeterValuesAlignedData: 'Energy.Active.Import.Register',
-          StopTxnSampledData: 'Power.Active.Import,Voltage',
-          StopTxnAlignedData: 'Energy.Active.Import.Register',
-          AuthorizeRemoteTxRequests: true,
-          LocalAuthorizeOffline: true,
-          LocalPreAuthorize: false,
-          AuthorizationCacheEnabled: true,
-          AllowOfflineTxForUnknownId: false,
-          StopTransactionOnEVSideDisconnect: true,
-          StopTransactionOnInvalidId: true,
-          MaxEnergyOnInvalidId: 0,
-          MinimumStatusDuration: 0,
-          NumberOfConnectors: 2,
-          TransactionMessageAttempts: 3,
-          TransactionMessageRetryInterval: 10,
-          UnlockConnectorOnEVSideDisconnect: true,
-          BlinkRepeat: 3,
-          LightIntensity: 50,
-          ConnectorPhaseRotation: '1.RST,2.RST',
-          GetConfigurationMaxKeys: 50,
-          SupportedFeatureProfiles: 'Core,RemoteTrigger,Firmware,Reservation,LocalAuthList,MeterValues',
-          Availability: ['Operative', 'Operative'],
-          IdTagWhitelist: ['04A1B23C', '7B3C9F22'],
-          WsSecure: false,
-          'BootNotification.intervalHint': 60,
-          FirmwareVersion: '1.0.0-web',
-          ChargeProfileEnabled: false,
-          ReservationEnabled: false
-        }
+          ...(partial?.chargePointConfig?.deviceSettings || {}),
+        })
+        const defaultOcppConfig: OcppConfiguration = normalizeOcppConfiguration(
+          partial?.chargePointConfig?.ocppConfig
+        )
         return {
           payload: {
             id,
@@ -111,9 +67,9 @@ const ocppSlice = createSlice({
             status: 'disconnected' as ConnectionStatus,
             paused: false,
             runtime: partial?.runtime || { connectorId: 1, idTag: 'DEMO1234' },
-            chargePointConfig: partial?.chargePointConfig || {
+            chargePointConfig: {
               deviceSettings: defaultDeviceSettings,
-              ocppConfig: defaultOcppConfig
+              ocppConfig: defaultOcppConfig,
             },
           } as ChargePoint,
         }

@@ -48,6 +48,7 @@ export function ChargingStatusDisplay({
   const currentValue = find('Current.Offered') || find('Current.Import');
   const powerValue = find('Power.Active.Import');
   const voltageValue = find('Voltage');
+  const socValue = find('SoC');
 
   const energyWh = energyValue ? Number.parseFloat(energyValue.value) : 0;
   const currentA = currentValue ? Number.parseFloat(currentValue.value) : 0;
@@ -59,15 +60,11 @@ export function ChargingStatusDisplay({
         (voltageValue ? Number.parseFloat(voltageValue.value) : 230)) /
       1000;
   const voltageV = voltageValue ? Number.parseFloat(voltageValue.value) : (deviceSettings?.nominalVoltageV || 230);
+  const socPct = socValue ? Number.parseFloat(socValue.value) : undefined;
 
-  // Mocked progress metrics
-  const sessionStartEnergy = 1000;
-  const energyDeliveredWh = Math.max(0, energyWh - sessionStartEnergy);
-  const targetEnergyWh = 50000;
-  const chargingProgress = Math.min(
-    100,
-    (energyDeliveredWh / targetEnergyWh) * 100
-  );
+  const chargingProgress = chargingType === 'DC' && socPct !== undefined
+    ? socPct
+    : Math.min(100, (energyWh / 50000) * 100);
 
   return (
     <div className='space-y-4'>
@@ -122,6 +119,22 @@ export function ChargingStatusDisplay({
 
           <Separator />
 
+          {chargingType === 'DC' && socPct !== undefined && (
+            <>
+              <div className='space-y-2'>
+                <div className='flex items-center justify-between'>
+                  <div className='flex items-center gap-1'>
+                    <Battery className='h-4 w-4 text-muted-foreground' />
+                    <span className='text-sm font-medium'>Battery SoC</span>
+                  </div>
+                  <span className='text-2xl font-bold'>{socPct.toFixed(1)}%</span>
+                </div>
+                <Progress value={socPct} className='h-3' />
+              </div>
+              <Separator />
+            </>
+          )}
+
           <div className='grid grid-cols-2 gap-4'>
             <div className='space-y-1'>
               <div className='flex items-center gap-1'>
@@ -156,7 +169,7 @@ export function ChargingStatusDisplay({
             </div>
           </div>
 
-          {isCharging && (
+          {isCharging && chargingType === 'AC' && (
             <>
               <Separator />
               <div className='space-y-2'>
@@ -169,9 +182,9 @@ export function ChargingStatusDisplay({
                 <Progress value={chargingProgress} className='h-2' />
                 <div className='flex justify-between text-xs text-muted-foreground'>
                   <span>
-                    {(energyDeliveredWh / 1000).toFixed(2)} kWh delivered
+                    {(energyWh / 1000).toFixed(2)} kWh delivered
                   </span>
-                  <span>{(targetEnergyWh / 1000).toFixed(0)} kWh target</span>
+                  <span>50 kWh target</span>
                 </div>
               </div>
             </>

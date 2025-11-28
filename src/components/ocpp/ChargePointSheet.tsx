@@ -7,11 +7,11 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { addChargePoint, setStatus } from '@/features/ocpp/ocppSlice';
+import { connectWs } from '@/features/ocpp/wsManager';
+import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { connectWs } from '@/features/ocpp/wsManager';
 
 interface Props {
   open: boolean;
@@ -29,7 +29,7 @@ export function ChargePointSheet({ open, onOpenChange }: Props) {
   const form = useForm<FormValues>({
     defaultValues: {
       label: '',
-      csmsUrl: 'wss://bo-uat.ovolt.com.tr/cir16',
+      csmsUrl: 'wss://localhost:9000/ocpp/',
       cpId: '',
     },
   });

@@ -5,17 +5,18 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { ChargePointAdvancedConfigSheet } from '@/components/ocpp/ChargePointAdvancedConfigSheet';
 import { ChargePointConfigSheet } from '@/components/ocpp/ChargePointConfigSheet';
 import { NetworkTraffic } from '@/components/ocpp/NetworkTraffic';
-import { normalizeDeviceSettings } from '@/constants/chargePointDefaults';
+import { SEO } from '@/components/SEO';
 import { Button } from '@/components/ui/button';
 import {
-    Dialog,
-    DialogClose,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
+import { normalizeDeviceSettings } from '@/constants/chargePointDefaults';
 import { useFrames, useOcppConnection } from '@/features/ocpp/hooks';
 import { removeChargePoint, setPaused } from '@/features/ocpp/ocppSlice';
 import { loadDeviceSettings, saveFrames } from '@/features/ocpp/storage';
@@ -43,7 +44,7 @@ export default function ChargePointConnection() {
   const framesQuery = useFrames(cp?.id || id || '');
   const frames = useMemo(() => framesQuery.data || [], [framesQuery.data]);
   const charging = useChargingStatus(cp?.id || id || '');
-  
+
   const storedDeviceSettings = loadDeviceSettings(cp?.id || id || '');
   const deviceSettings = normalizeDeviceSettings({
     deviceName:
@@ -67,11 +68,20 @@ export default function ChargePointConnection() {
   if (!cp) {
     return (
       <DashboardLayout>
-        <div className='p-6'>
-          <div className='text-lg font-semibold'>Charge point not found</div>
-          <div className='mt-2 text-sm text-muted-foreground'>The ID "{id}" was not found in your local state. Go back to dashboard and select a charge point.</div>
+        <div className='p-4 sm:p-6'>
+          <div className='text-base sm:text-lg font-semibold'>
+            Charge point not found
+          </div>
+          <div className='mt-2 text-xs sm:text-sm text-muted-foreground break-words'>
+            The ID "{id}" was not found in your local state. Go back to
+            dashboard and select a charge point.
+          </div>
           <div className='mt-4'>
-            <Button size='sm' onClick={() => (window.location.hash = '#/')}>
+            <Button
+              size='sm'
+              onClick={() => (window.location.hash = '#/')}
+              className='w-full sm:w-auto'
+            >
               Back to Dashboard
             </Button>
           </div>
@@ -114,113 +124,156 @@ export default function ChargePointConnection() {
   };
 
   return (
-    <DashboardLayout>
-      <div className='grid gap-4 p-4'>
-        {/* Minimal header/status */}
-        <div className='flex items-start justify-between'>
-          <div>
-            <div className='text-lg font-semibold'>{cp.label}</div>
-            <div className='mt-1 text-xs text-muted-foreground'>
-              CSMS: {cp.config.csmsUrl} • CP: {cp.config.cpId} •{' '}
-              {cp.config.protocol}
-            </div>
-            <div className='mt-2 inline-flex items-center gap-2 rounded-full border px-2 py-0.5 text-xs'>
-              <span
-                className={`inline-block h-2 w-2 rounded-full ${
-                  cp.status === 'connected'
-                    ? 'bg-green-500'
-                    : cp.status === 'connecting'
-                    ? 'bg-yellow-500'
-                    : 'bg-slate-400'
-                }`}
-              />
-              <span className='capitalize'>{cp.status}</span>
-            </div>
-          </div>
-          <div className='flex flex-wrap items-center justify-end gap-2'>
-            <Button size='sm' variant='outline' onClick={() => setConfigOpen(true)}>
-              Basic Config
-            </Button>
-            <Button size='sm' variant='outline' onClick={() => setAdvancedConfigOpen(true)}>
-              Advanced Config
-            </Button>
-            <Button
-              size='sm'
-              variant='destructive'
-              onClick={() => setDeleteOpen(true)}
-            >
-              Delete
-            </Button>
-            <Button
-              size='sm'
-              variant='outline'
-              onClick={() => connect.mutate({})}
-              disabled={(cp.status !== 'disconnected') || connect.isPending}
-            >
-              {connect.isPending || cp.status === 'connecting' ? 'Connecting...' : 'Connect'}
-            </Button>
-            <Button
-              size='sm'
-              variant='ghost'
-              onClick={() => disconnect.mutate()}
-              disabled={cp.status === 'disconnected' || disconnect.isPending}
-            >
-              Disconnect
-            </Button>
-          </div>
-        </div>
-
-        {/* Charging status above actions */}
-        <ChargingStatusDisplay
-          chargingData={charging.chargingData}
-          isCharging={charging.isCharging}
-          chargingType={deviceSettings.acdc || 'AC'}
-          deviceSettings={deviceSettings}
-        />
-
-        {/* Controls */}
-        <ControlsPanel cp={cp} deviceSettings={deviceSettings} />
-
-        {/* Network traffic minimal view */}
-        <NetworkTraffic
-          frames={frames}
-          paused={cp.paused}
-          onTogglePause={onTogglePause}
-          onCopy={onCopy}
-          onClear={onClear}
-        />
-      </div>
-      <ChargePointConfigSheet
-        chargePoint={cp}
-        open={configOpen}
-        onOpenChange={(next) => setConfigOpen(next)}
+    <>
+      <SEO
+        title={`Charge Point: ${cp?.label || id}`}
+        description={`Monitor and control OCPP charge point ${
+          cp?.label || id
+        }. View real-time charging status, send OCPP messages, monitor network traffic, and manage charging sessions.`}
+        keywords={`OCPP charge point, ${
+          cp?.label || id
+        }, EV charging simulation, OCPP monitoring, charge point control`}
       />
-      <ChargePointAdvancedConfigSheet
-        chargePoint={cp}
-        open={advancedConfigOpen}
-        onOpenChange={(next) => setAdvancedConfigOpen(next)}
-      />
-      <Dialog open={deleteOpen} onOpenChange={(next) => setDeleteOpen(next)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete connection?</DialogTitle>
-            <DialogDescription>
-              This will remove "{cp.label}" and disconnect the simulated charge
-              point.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type='button' variant='outline'>
-                Cancel
+      <DashboardLayout>
+        <div className='grid gap-4'>
+          <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
+            <div className='flex-1 min-w-0'>
+              <div className='text-base sm:text-lg font-semibold truncate'>
+                {cp.label}
+              </div>
+              <div className='mt-1 text-xs text-muted-foreground break-words'>
+                <span className='hidden sm:inline'>
+                  CSMS: {cp.config.csmsUrl} •{' '}
+                </span>
+                <span className='sm:hidden'>CSMS: </span>
+                <span className='sm:hidden break-all'>{cp.config.csmsUrl}</span>
+                <span className='sm:hidden block mt-1'>
+                  CP: {cp.config.cpId} • {cp.config.protocol}
+                </span>
+                <span className='hidden sm:inline'>
+                  CP: {cp.config.cpId} • {cp.config.protocol}
+                </span>
+              </div>
+              <div className='mt-2 inline-flex items-center gap-2 rounded-full border px-2 py-0.5 text-xs'>
+                <span
+                  className={`inline-block h-2 w-2 rounded-full shrink-0 ${
+                    cp.status === 'connected'
+                      ? 'bg-green-500'
+                      : cp.status === 'connecting'
+                      ? 'bg-yellow-500'
+                      : 'bg-slate-400'
+                  }`}
+                />
+                <span className='capitalize'>{cp.status}</span>
+              </div>
+            </div>
+            <div className='flex flex-wrap items-center gap-2 sm:justify-end'>
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={() => setConfigOpen(true)}
+                className='flex-1 sm:flex-initial text-xs sm:text-sm'
+              >
+                <span className='hidden sm:inline'>Basic Config</span>
+                <span className='sm:hidden'>Basic</span>
               </Button>
-            </DialogClose>
-            <Button type='button' variant='destructive' onClick={onDelete}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </DashboardLayout>
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={() => setAdvancedConfigOpen(true)}
+                className='flex-1 sm:flex-initial text-xs sm:text-sm'
+              >
+                <span className='hidden sm:inline'>Advanced Config</span>
+                <span className='sm:hidden'>Advanced</span>
+              </Button>
+              <Button
+                size='sm'
+                variant='destructive'
+                onClick={() => setDeleteOpen(true)}
+                className='flex-1 sm:flex-initial text-xs sm:text-sm'
+              >
+                Delete
+              </Button>
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={() => connect.mutate({})}
+                disabled={cp.status !== 'disconnected' || connect.isPending}
+                className='flex-1 sm:flex-initial text-xs sm:text-sm'
+              >
+                {connect.isPending || cp.status === 'connecting' ? (
+                  <span className='hidden sm:inline'>Connecting...</span>
+                ) : (
+                  <>
+                    <span className='hidden sm:inline'>Connect</span>
+                    <span className='sm:hidden'>Connect</span>
+                  </>
+                )}
+              </Button>
+              <Button
+                size='sm'
+                variant='ghost'
+                onClick={() => disconnect.mutate()}
+                disabled={cp.status === 'disconnected' || disconnect.isPending}
+                className='flex-1 sm:flex-initial text-xs sm:text-sm'
+              >
+                Disconnect
+              </Button>
+            </div>
+          </div>
+
+          {/* Charging status above actions */}
+          <ChargingStatusDisplay
+            chargingData={charging.chargingData}
+            isCharging={charging.isCharging}
+            chargingType={deviceSettings.acdc || 'AC'}
+            deviceSettings={deviceSettings}
+          />
+
+          {/* Controls */}
+          <ControlsPanel cp={cp} deviceSettings={deviceSettings} />
+
+          {/* Network traffic minimal view */}
+          <NetworkTraffic
+            frames={frames}
+            paused={cp.paused}
+            onTogglePause={onTogglePause}
+            onCopy={onCopy}
+            onClear={onClear}
+          />
+        </div>
+        <ChargePointConfigSheet
+          chargePoint={cp}
+          open={configOpen}
+          onOpenChange={(next) => setConfigOpen(next)}
+        />
+        <ChargePointAdvancedConfigSheet
+          chargePoint={cp}
+          open={advancedConfigOpen}
+          onOpenChange={(next) => setAdvancedConfigOpen(next)}
+        />
+        <Dialog open={deleteOpen} onOpenChange={(next) => setDeleteOpen(next)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete connection?</DialogTitle>
+              <DialogDescription>
+                This will remove "{cp.label}" and disconnect the simulated
+                charge point.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type='button' variant='outline'>
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button type='button' variant='destructive' onClick={onDelete}>
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </DashboardLayout>
+    </>
   );
 }

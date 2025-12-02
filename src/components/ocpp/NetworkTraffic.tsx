@@ -92,8 +92,8 @@ export const NetworkTraffic = ({
   return (
     <Card>
       <CardContent className='p-0'>
-        <div className='flex flex-row items-center justify-between border-b p-3'>
-          <div className='flex items-center gap-2 p-3'>
+        <div className='flex flex-col gap-3 border-b p-3 sm:flex-row sm:items-center sm:justify-between'>
+          <div className='flex flex-wrap items-center gap-2'>
             <ToggleBtn
               active={filter.dir === 'all' && filter.kind === 'all'}
               onClick={() => setFilter({ dir: 'all', kind: 'all', q: '' })}
@@ -132,18 +132,18 @@ export const NetworkTraffic = ({
               ERROR
             </ToggleBtn>
           </div>
-          <div className='flex items-center gap-2'>
+          <div className='flex flex-wrap items-center gap-2'>
             <Input
               placeholder='Search'
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className='w-40 h-8'
+              className='w-full h-8 sm:w-40'
             />
             <Button
               size='sm'
               variant='outline'
               onClick={onTogglePause}
-              className='h-8'
+              className='h-8 flex-1 sm:flex-initial'
             >
               {paused ? 'Resume' : 'Pause'}
             </Button>
@@ -151,25 +151,30 @@ export const NetworkTraffic = ({
               size='sm'
               variant='outline'
               onClick={onCopy}
-              className='h-8'
+              className='h-8 flex-1 sm:flex-initial'
             >
               Copy
             </Button>
-            <Button size='sm' variant='ghost' onClick={onClear} className='h-8'>
+            <Button 
+              size='sm' 
+              variant='ghost' 
+              onClick={onClear} 
+              className='h-8 flex-1 sm:flex-initial'
+            >
               Clear
             </Button>
           </div>
         </div>
 
-        <div className='max-h-96 overflow-auto'>
+        <div className='max-h-[60vh] overflow-auto sm:max-h-96'>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className='w-[120px]'>Time</TableHead>
-                <TableHead className='w-[60px]'>Dir</TableHead>
-                <TableHead className='w-[120px]'>Type</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead className='w-[220px]'>Id</TableHead>
+                <TableHead className='w-[80px] sm:w-[120px]'>Time</TableHead>
+                <TableHead className='w-[40px] sm:w-[60px]'>Dir</TableHead>
+                <TableHead className='w-[80px] sm:w-[120px]'>Type</TableHead>
+                <TableHead className='min-w-[100px]'>Action</TableHead>
+                <TableHead className='w-[120px] sm:w-[220px]'>Id</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

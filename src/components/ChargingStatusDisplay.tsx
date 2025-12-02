@@ -81,11 +81,11 @@ export function ChargingStatusDisplay({
           </CardTitle>
         </CardHeader>
         <CardContent className='space-y-4'>
-          <div className='flex items-center justify-between'>
+          <div className='flex items-center justify-between flex-wrap gap-2'>
             <span className='text-sm font-medium'>Status</span>
             <Badge
               variant={isCharging ? 'default' : 'secondary'}
-              className='flex items-center gap-1'
+              className='flex items-center gap-1 shrink-0'
             >
               {isCharging ? (
                 <Zap className='h-3 w-3' />
@@ -96,22 +96,26 @@ export function ChargingStatusDisplay({
             </Badge>
           </div>
 
-          <div className='flex items-center justify-between'>
+          <div className='flex items-center justify-between flex-wrap gap-2'>
             <span className='text-sm font-medium'>Charging Type</span>
-            <Badge variant='outline'>{chargingType}</Badge>
+            <Badge variant='outline' className='shrink-0'>
+              {chargingType}
+            </Badge>
           </div>
 
           {deviceSettings?.deviceName && (
-            <div className='flex items-center justify-between'>
+            <div className='flex items-center justify-between flex-wrap gap-2'>
               <span className='text-sm font-medium'>Device</span>
-              <span className='text-sm font-mono'>{deviceSettings.deviceName}</span>
+              <span className='text-xs sm:text-sm font-mono break-all text-right'>
+                {deviceSettings.deviceName}
+              </span>
             </div>
           )}
 
           {chargingData?.transactionId && (
-            <div className='flex items-center justify-between'>
+            <div className='flex items-center justify-between flex-wrap gap-2'>
               <span className='text-sm font-medium'>Transaction ID</span>
-              <span className='text-sm font-mono'>
+              <span className='text-xs sm:text-sm font-mono break-all text-right'>
                 {chargingData.transactionId}
               </span>
             </div>
@@ -122,12 +126,14 @@ export function ChargingStatusDisplay({
           {chargingType === 'DC' && socPct !== undefined && (
             <>
               <div className='space-y-2'>
-                <div className='flex items-center justify-between'>
+                <div className='flex items-center justify-between flex-wrap gap-2'>
                   <div className='flex items-center gap-1'>
-                    <Battery className='h-4 w-4 text-muted-foreground' />
+                    <Battery className='h-4 w-4 text-muted-foreground shrink-0' />
                     <span className='text-sm font-medium'>Battery SoC</span>
                   </div>
-                  <span className='text-2xl font-bold'>{socPct.toFixed(1)}%</span>
+                  <span className='text-xl sm:text-2xl font-bold'>
+                    {socPct.toFixed(1)}%
+                  </span>
                 </div>
                 <Progress value={socPct} className='h-3' />
               </div>
@@ -135,35 +141,49 @@ export function ChargingStatusDisplay({
             </>
           )}
 
-          <div className='grid grid-cols-2 gap-4'>
+          <div className='grid grid-cols-2 gap-3 sm:gap-4'>
             <div className='space-y-1'>
               <div className='flex items-center gap-1'>
-                <Gauge className='h-3 w-3 text-muted-foreground' />
+                <Gauge className='h-3 w-3 text-muted-foreground shrink-0' />
                 <span className='text-xs text-muted-foreground'>Power</span>
               </div>
-              <div className='text-lg font-bold'>
-                {powerKW.toFixed(1)} / {deviceSettings?.maxPowerKw || 22} kW
+              <div className='text-base sm:text-lg font-bold break-words'>
+                <span className='text-sm sm:text-base'>
+                  {powerKW.toFixed(1)}
+                </span>
+                <span className='text-xs sm:text-sm text-muted-foreground'>
+                  {' '}
+                  / {deviceSettings?.maxPowerKw || 22} kW
+                </span>
               </div>
             </div>
 
             <div className='space-y-1'>
               <div className='flex items-center gap-1'>
-                <Zap className='h-3 w-3 text-muted-foreground' />
+                <Zap className='h-3 w-3 text-muted-foreground shrink-0' />
                 <span className='text-xs text-muted-foreground'>Current</span>
               </div>
-              <div className='text-lg font-bold'>
-                {currentA.toFixed(1)} / {deviceSettings?.maxCurrentA || 32} A
+              <div className='text-base sm:text-lg font-bold break-words'>
+                <span className='text-sm sm:text-base'>
+                  {currentA.toFixed(1)}
+                </span>
+                <span className='text-xs sm:text-sm text-muted-foreground'>
+                  {' '}
+                  / {deviceSettings?.maxCurrentA || 32} A
+                </span>
               </div>
             </div>
 
             <div className='space-y-1'>
               <span className='text-xs text-muted-foreground'>Voltage</span>
-              <div className='text-lg font-bold'>{voltageV.toFixed(0)} V</div>
+              <div className='text-base sm:text-lg font-bold'>
+                {voltageV.toFixed(0)} V
+              </div>
             </div>
 
             <div className='space-y-1'>
               <span className='text-xs text-muted-foreground'>Energy</span>
-              <div className='text-lg font-bold'>
+              <div className='text-base sm:text-lg font-bold break-words'>
                 {(energyWh / 1000).toFixed(2)} kWh
               </div>
             </div>
@@ -173,18 +193,18 @@ export function ChargingStatusDisplay({
             <>
               <Separator />
               <div className='space-y-2'>
-                <div className='flex items-center justify-between'>
+                <div className='flex items-center justify-between flex-wrap gap-2'>
                   <span className='text-sm font-medium'>Session Progress</span>
                   <span className='text-sm text-muted-foreground'>
                     {chargingProgress.toFixed(1)}%
                   </span>
                 </div>
                 <Progress value={chargingProgress} className='h-2' />
-                <div className='flex justify-between text-xs text-muted-foreground'>
-                  <span>
+                <div className='flex justify-between flex-wrap gap-2 text-xs text-muted-foreground'>
+                  <span className='break-words'>
                     {(energyWh / 1000).toFixed(2)} kWh delivered
                   </span>
-                  <span>50 kWh target</span>
+                  <span className='shrink-0'>50 kWh target</span>
                 </div>
               </div>
             </>

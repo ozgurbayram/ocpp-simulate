@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ozgurbayram.github.io/OCPPSimulator/sitemap.xml
+

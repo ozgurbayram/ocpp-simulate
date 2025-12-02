@@ -177,15 +177,20 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
         </CardTitle>
       </CardHeader>
       <CardContent className='grid gap-4'>
-        <div className='flex items-center justify-between rounded border px-3 py-2 text-sm'>
+        <div className='flex items-center justify-between rounded border px-3 py-2 text-sm flex-wrap gap-2'>
           <span className='font-medium'>Connector 1</span>
-          <span className='text-muted-foreground'>
+          <span className='text-muted-foreground text-xs sm:text-sm break-words'>
             {deviceSettings?.socketType?.[0] || 'Type2'} ({deviceSettings?.acdc || 'AC'})
           </span>
         </div>
 
         <div className='flex flex-wrap gap-2'>
-          <Button size='sm' onClick={onBoot} disabled={!connected}>
+          <Button 
+            size='sm' 
+            onClick={onBoot} 
+            disabled={!connected}
+            className='text-xs sm:text-sm flex-1 sm:flex-initial min-w-[120px] sm:min-w-0'
+          >
             BootNotification
           </Button>
           <Button
@@ -193,6 +198,7 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
             variant='outline'
             onClick={onHeartbeat}
             disabled={!connected}
+            className='text-xs sm:text-sm flex-1 sm:flex-initial min-w-[120px] sm:min-w-0'
           >
             Heartbeat
           </Button>
@@ -201,6 +207,7 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
             variant='outline'
             onClick={onStatus}
             disabled={!connected}
+            className='text-xs sm:text-sm flex-1 sm:flex-initial min-w-[120px] sm:min-w-0'
           >
             Status
           </Button>
@@ -209,6 +216,7 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
             variant='outline'
             onClick={onAuthorize}
             disabled={!connected}
+            className='text-xs sm:text-sm flex-1 sm:flex-initial min-w-[120px] sm:min-w-0'
           >
             Authorize
           </Button>
@@ -217,6 +225,7 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
             variant='secondary'
             onClick={onStartTx}
             disabled={!connected}
+            className='text-xs sm:text-sm flex-1 sm:flex-initial min-w-[120px] sm:min-w-0'
           >
             StartTx
           </Button>
@@ -225,6 +234,7 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
             variant='outline'
             onClick={onMeterValues}
             disabled={!connected}
+            className='text-xs sm:text-sm flex-1 sm:flex-initial min-w-[120px] sm:min-w-0'
           >
             MeterValues
           </Button>
@@ -233,6 +243,7 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
             variant='destructive'
             onClick={onStopTx}
             disabled={!connected || !cp.runtime?.transactionId}
+            className='text-xs sm:text-sm flex-1 sm:flex-initial min-w-[120px] sm:min-w-0'
           >
             StopTx
           </Button>
@@ -241,6 +252,7 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
             variant='secondary'
             onClick={onUnlockCable}
             disabled={!connected}
+            className='text-xs sm:text-sm flex-1 sm:flex-initial min-w-[120px] sm:min-w-0'
           >
             Unlock Cable
           </Button>

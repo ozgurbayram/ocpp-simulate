@@ -12,8 +12,8 @@ export const DEFAULT_DEVICE_SETTINGS: DeviceSettings = {
   nominalVoltageV: 400,
   maxCurrentA: 32,
   energyKwh: 0,
-  socketType: ['Type2'],
-  cableLock: [true],
+  socketType: ['Type2', 'CCS'],
+  cableLock: [true, true],
   hasRfid: true,
   hasDisplay: true,
   timezone: 'Europe/Istanbul',
@@ -78,7 +78,6 @@ export function normalizeDeviceSettings(
   const merged: DeviceSettings = {
     ...DEFAULT_DEVICE_SETTINGS,
     ...(partial || {}),
-    connectors: 1,
     acdc: acdcNormalized,
   }
 
@@ -93,11 +92,15 @@ export function normalizeDeviceSettings(
     100
   )
 
+  const numConnectors = merged.connectors
+  const socketTypeArray = Array.from({ length: numConnectors }, (_, i) => partial?.socketType?.[i] ?? socket)
+  const cableLockArray = Array.from({ length: numConnectors }, (_, i) => partial?.cableLock?.[i] ?? Boolean(cable))
+
   return {
     ...merged,
     acdc: acdcNormalized,
-    socketType: [socket],
-    cableLock: [Boolean(cable)],
+    socketType: socketTypeArray,
+    cableLock: cableLockArray,
     batteryStartPercent: batteryStart,
   }
 }

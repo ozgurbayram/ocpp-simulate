@@ -275,7 +275,7 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
                 size='sm'
                 variant='destructive'
                 onClick={onStopTx}
-                disabled={!connected || !cp.runtime?.transactionId}
+                disabled={!connected || !cp.runtime?.connectors?.some(c => c.transactionId)}
                 className='h-9 text-xs sm:text-sm'
               >
                 StopTx

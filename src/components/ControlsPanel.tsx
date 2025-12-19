@@ -1,14 +1,15 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useOcppConnection } from '@/features/ocpp/hooks';
 import type { ChargePoint } from '@/features/ocpp/ocppSlice';
-import { setConnectorId, setTransactionId } from '@/features/ocpp/ocppSlice';
+import { setTransactionId, updateConnectorStatus } from '@/features/ocpp/ocppSlice';
 import { useBatteryState } from '@/hooks/useBatteryState';
 import { getMeterForCp } from '@/services/meterModel';
 import { Plug, Power, Activity, Lock } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useDispatch } from 'react-redux';
 
@@ -31,6 +32,8 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
   const { call } = useOcppConnection(cp);
   const connected = cp.status === 'connected';
   const { beginCharge, endCharge, setMeterStart } = useBatteryState();
+  const numConnectors = deviceSettings?.connectors || 1;
+  const [selectedConnectorId, setSelectedConnectorId] = useState(1);
 
   const form = useForm<PanelForm>({
     defaultValues: {
@@ -40,12 +43,12 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
   });
 
   useEffect(() => {
-    if ((cp.runtime?.connectorId || 1) !== 1) {
-      dispatch(setConnectorId({ id: cp.id, connectorId: 1 }));
+    if (selectedConnectorId > numConnectors) {
+      setSelectedConnectorId(1);
     }
-  }, [cp.id, cp.runtime?.connectorId, dispatch]);
+  }, [numConnectors, selectedConnectorId]);
 
-  const connectorId = 1;
+  const connectorId = selectedConnectorId;
 
   const onBoot = () => {
     const v = form.getValues();
@@ -71,12 +74,13 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
         errorCode: 'NoError',
       },
     });
+    dispatch(updateConnectorStatus({ id: cp.id, connectorId, status: 'Available' }));
   };
 
   const onAuthorize = () => {
     call.mutate({
       action: 'Authorize',
-      payload: { idTag: cp.runtime?.idTag || 'DEMO1234' },
+      payload: { idTag: cp.runtime?.connectors?.find(c => c.id === connectorId)?.idTag || 'DEMO1234' },
     });
   };
 
@@ -85,14 +89,14 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
     try {
       await call.mutateAsync({
         action: 'Authorize',
-        payload: { idTag: cp.runtime?.idTag || 'DEMO1234' },
+        payload: { idTag: cp.runtime?.connectors?.find(c => c.id === connectorId)?.idTag || 'DEMO1234' },
       });
     } catch {}
     const res = await call.mutateAsync({
       action: 'StartTransaction',
       payload: {
         connectorId,
-        idTag: cp.runtime?.idTag || 'DEMO1234',
+        idTag: cp.runtime?.connectors?.find(c => c.id === connectorId)?.idTag || 'DEMO1234',
         meterStart,
         timestamp: new Date().toISOString(),
       },
@@ -101,7 +105,7 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
       typeof (res as any)?.transactionId === 'number'
         ? (res as any).transactionId
         : Math.floor(Math.random() * 100000);
-    dispatch(setTransactionId({ id: cp.id, transactionId: txid }));
+    dispatch(setTransactionId({ id: cp.id, connectorId, transactionId: txid }));
     await call.mutateAsync({
       action: 'StatusNotification',
       payload: {
@@ -110,6 +114,7 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
         errorCode: 'NoError',
       },
     });
+    dispatch(updateConnectorStatus({ id: cp.id, connectorId, status: 'Charging' }));
     // begin local battery simulation and periodic MeterValues pushes
     setMeterStart(meterStart);
     beginCharge(() => {
@@ -123,33 +128,34 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
   };
 
   const onStopTx = async () => {
-    const tx = cp.runtime?.transactionId || 0;
+    const tx = cp.runtime?.connectors?.find(c => c.id === connectorId)?.transactionId || 0;
     let meterStop = 0;
     try {
       const m = getMeterForCp(cp.id);
       await m?.tick();
-      const st = m?.getState();
+      const st = m?.getState(connectorId);
       meterStop = Math.floor(Math.max(0, Number(st?.energyWh || 0)));
     } catch {}
     await call.mutateAsync({
       action: 'StopTransaction',
       payload: {
         transactionId: tx,
-        idTag: cp.runtime?.idTag || 'DEMO1234',
+        idTag: cp.runtime?.connectors?.find(c => c.id === connectorId)?.idTag || 'DEMO1234',
         meterStop,
         timestamp: new Date().toISOString(),
         reason: 'Local',
       },
     });
-    dispatch(setTransactionId({ id: cp.id, transactionId: undefined }));
+    dispatch(setTransactionId({ id: cp.id, connectorId, transactionId: undefined }));
     await call.mutateAsync({
       action: 'StatusNotification',
       payload: {
         connectorId,
-        status: 'Finishing',
+        status: 'Available',
         errorCode: 'NoError',
       },
     });
+    dispatch(updateConnectorStatus({ id: cp.id, connectorId, status: 'Available' }));
     endCharge();
   };
 
@@ -179,10 +185,19 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
       </CardHeader>
       <CardContent className='space-y-6'>
         <div className='flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3'>
-          <span className='font-medium text-sm'>Connector 1</span>
-          <span className='text-muted-foreground text-xs sm:text-sm'>
-            {deviceSettings?.socketType?.[0] || 'Type2'} ({deviceSettings?.acdc || 'AC'})
-          </span>
+          <span className='font-medium text-sm'>Connector</span>
+          <Select value={selectedConnectorId.toString()} onValueChange={(value) => setSelectedConnectorId(Number(value))}>
+            <SelectTrigger className='w-32'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: numConnectors }, (_, i) => i + 1).map(id => (
+                <SelectItem key={id} value={id.toString()}>
+                  {id} - {deviceSettings?.socketType?.[id - 1] || 'Type2'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className='space-y-4'>
@@ -260,7 +275,7 @@ export const ControlsPanel = ({ cp, deviceSettings }: ControlsPanelProps) => {
                 size='sm'
                 variant='destructive'
                 onClick={onStopTx}
-                disabled={!connected || !cp.runtime?.transactionId}
+                disabled={!connected || !cp.runtime?.connectors?.some(c => c.transactionId)}
                 className='h-9 text-xs sm:text-sm'
               >
                 StopTx

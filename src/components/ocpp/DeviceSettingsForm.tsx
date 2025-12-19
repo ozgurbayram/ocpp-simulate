@@ -58,16 +58,14 @@ export function DeviceSettingsForm({
     form.reset(deviceSettings);
   }, [deviceSettings, form]);
 
-  useEffect(() => {
-    form.setValue('connectors', 1);
-  }, [form]);
-
   const handleSubmit = form.handleSubmit((data) => {
+    const numConnectors = data.connectors || 1;
+    const socketTypeArray = Array.from({ length: numConnectors }, (_, i) => data.socketType?.[i] || data.socketType?.[0] || 'Type2');
+    const cableLockArray = Array.from({ length: numConnectors }, (_, i) => data.cableLock?.[i] ?? data.cableLock?.[0] ?? true);
     const normalized = normalizeDeviceSettings({
       ...data,
-      connectors: 1,
-      socketType: [data.socketType?.[0] || 'Type2'],
-      cableLock: [data.cableLock?.[0] ?? true],
+      socketType: socketTypeArray,
+      cableLock: cableLockArray,
     });
     onSave(normalized);
   });
@@ -129,7 +127,13 @@ export function DeviceSettingsForm({
             </div>
             <div className='space-y-2'>
               <label className='text-sm font-medium'>Connector Count</label>
-              <Input value='1' disabled />
+              <Input
+                type='number'
+                min='1'
+                max='10'
+                {...form.register('connectors', { required: true, valueAsNumber: true })}
+                placeholder='1'
+              />
             </div>
           </div>
         </CardContent>

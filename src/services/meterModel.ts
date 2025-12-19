@@ -27,8 +27,8 @@ export type MeterModel = {
   start: (txId: number, connectorId: number, initialMeterWh: number, initialSocPct?: number) => void
   stop: (txId?: number) => void
   tick: () => Promise<void>
-  getState: () => Readonly<MeterState>
-  applyLimitKW: (kW?: number) => void
+  getState: (connectorId?: number) => Readonly<MeterState>
+  applyLimitKW: (kW?: number, connectorId?: number) => void
 }
 
 type Context = Pick<
@@ -130,29 +130,20 @@ function jitterKW(noiseKW: number | undefined): number {
 export function createMeterModel(cpId: string, ctx: Context, cfgPartial?: Partial<MeterConfig>): MeterModel {
   const cfg: Required<MeterConfig> = { ...DEFAULTS, ...(cfgPartial || {}) }
 
-  let currentKey: PersistKey | undefined
-  let txId: number | undefined
-  let connectorId: number | undefined
-  let limitKW: number | undefined
+  const activeSessions = new Map<number, { txId: number; st: MeterState; limitKW?: number }>()
 
-  let st: MeterState = {
-    socPct: cfg.socStartPct,
-    energyWh: 0,
-    powerKW: 0,
-    currentA: 0,
-    voltageV: cfg.packVoltageMinV,
-    lastSampleIso: ctx.nowISO(),
+  function persist(connectorId: number, st: MeterState) {
+    const txId = activeSessions.get(connectorId)?.txId
+    if (txId) saveState({ cpId, connectorId, txId }, st)
   }
 
-  function persist() {
-    if (currentKey) saveState(currentKey, st)
-  }
-
-  function recompute(dtSec: number) {
+  function recomputeForSession(session: { txId: number; st: MeterState; limitKW?: number }, dtSec: number) {
+    const st = session.st
+    const limitKW = session.limitKW
     // Base power from taper
     let pKW = computeTaperKW(st.socPct, cfg.stationMaxKW)
     // Clamp to >=2 kW only if session active and SOC < 100
-    if (txId != null && st.socPct < 100) pKW = Math.max(pKW, 2)
+    if (st.socPct < 100) pKW = Math.max(pKW, 2)
     // Apply external limit, if any
     if (limitKW != null && Number.isFinite(limitKW)) pKW = Math.min(pKW, Math.max(0, limitKW))
     // Apply jitter
@@ -178,18 +169,11 @@ export function createMeterModel(cpId: string, ctx: Context, cfgPartial?: Partia
     st.currentA = safeNum(current)
   }
 
-  async function emitIfNeeded() {
+  async function emitIfNeededForSession(session: { txId: number; st: MeterState }, connectorId: number) {
     try {
-      if (txId == null) {
-        console.log('No txId for meter emission')
-        return
-      }
-      const tx = ctx.getTransactionId?.()
-      if (typeof tx !== 'number' || tx !== txId) {
-        console.log('Transaction ID mismatch:', { expected: txId, actual: tx })
-        return
-      }
-      const connId = ctx.getActiveConnectorId?.() ?? connectorId ?? 1
+      const txId = session.txId
+      const st = session.st
+      const connId = connectorId
       const timestamp = ctx.nowISO()
       const meas = (ctx.getMeterValuesMeasurands?.() ?? [
         'Energy.Active.Import.Register',
@@ -250,63 +234,68 @@ export function createMeterModel(cpId: string, ctx: Context, cfgPartial?: Partia
 
   const api: MeterModel = {
     start: (tx, conn, initialWh, initialSocPct) => {
-      txId = tx
-      connectorId = conn || 1
-      currentKey = { cpId, connectorId, txId }
+      const connectorId = conn || 1
+      const key = { cpId, connectorId, txId: tx }
       // Try restore existing; otherwise initialize fresh with provided values
-      const restored = loadState(currentKey)
-      if (restored) {
-        st = { ...restored }
-      } else {
-        st = {
-          socPct: clamp(initialSocPct ?? cfg.socStartPct, 0, 100),
-          energyWh: Math.max(0, initialWh || 0),
-          powerKW: 0,
-          currentA: 0,
-          voltageV: estimateVoltageV(cfg, clamp(initialSocPct ?? cfg.socStartPct, 0, 100)),
-          lastSampleIso: ctx.nowISO(),
-        }
-        persist()
+      const restored = loadState(key)
+      const st: MeterState = restored ? { ...restored } : {
+        socPct: clamp(initialSocPct ?? cfg.socStartPct, 0, 100),
+        energyWh: Math.max(0, initialWh || 0),
+        powerKW: 0,
+        currentA: 0,
+        voltageV: estimateVoltageV(cfg, clamp(initialSocPct ?? cfg.socStartPct, 0, 100)),
+        lastSampleIso: ctx.nowISO(),
       }
+      activeSessions.set(connectorId, { txId: tx, st, limitKW: undefined })
+      if (!restored) persist(connectorId, st)
     },
     stop: (txMaybe) => {
-      if (txMaybe != null && txMaybe !== txId) return
-      if (currentKey) {
-        persist()
-        removeState(currentKey)
+      for (const [connId, session] of activeSessions) {
+        if (txMaybe != null && txMaybe !== session.txId) continue
+        persist(connId, session.st)
+        removeState({ cpId, connectorId: connId, txId: session.txId })
+        session.st.powerKW = 0
+        session.st.currentA = 0
+        activeSessions.delete(connId)
       }
-      txId = undefined
-      limitKW = undefined
-      currentKey = undefined
-      // Power goes to 0, keep state otherwise
-      st.powerKW = 0
-      st.currentA = 0
     },
     tick: async () => {
       const nowIso = ctx.nowISO()
-      const last = Date.parse(st.lastSampleIso)
-      const now = Date.parse(nowIso)
-      const dtSec = Math.max(0, isNaN(last) || isNaN(now) ? cfg.samplePeriodSec : (now - last) / 1000)
-      st.lastSampleIso = nowIso
-      if (txId != null) {
-        recompute(dtSec)
-        persist()
-        if (st.socPct >= 100) {
+      for (const [connId, session] of activeSessions) {
+        const last = Date.parse(session.st.lastSampleIso)
+        const now = Date.parse(nowIso)
+        const dtSec = Math.max(0, isNaN(last) || isNaN(now) ? cfg.samplePeriodSec : (now - last) / 1000)
+        session.st.lastSampleIso = nowIso
+        recomputeForSession(session, dtSec)
+        persist(connId, session.st)
+        if (session.st.socPct >= 100) {
           // auto-stop emission once full
-          await emitIfNeeded() // emit final sample at 100%
-          const tx = txId
-          api.stop(tx)
-          return
+          await emitIfNeededForSession(session, connId) // emit final sample at 100%
+          activeSessions.delete(connId)
+          continue
         }
-        await emitIfNeeded()
+        await emitIfNeededForSession(session, connId)
       }
     },
-    getState: () => ({ ...st }),
-    applyLimitKW: (kW?: number) => {
-      if (kW == null || !Number.isFinite(kW)) {
-        limitKW = undefined
-      } else {
-        limitKW = Math.max(0, kW)
+    getState: (connectorId) => {
+      const session = activeSessions.get(connectorId || 1)
+      return session ? { ...session.st } : {
+        socPct: cfg.socStartPct,
+        energyWh: 0,
+        powerKW: 0,
+        currentA: 0,
+        voltageV: cfg.packVoltageMinV,
+        lastSampleIso: ctx.nowISO(),
+      }
+    },
+    applyLimitKW: (kW, connectorId) => {
+      const session = activeSessions.get(connectorId || 1)
+      if (session) {
+        if (kW == null || !Number.isFinite(kW)) {
+          session.limitKW = undefined
+        } else {
+          session.limitKW = Math.max(0, kW)
+        }
       }
     },
   }

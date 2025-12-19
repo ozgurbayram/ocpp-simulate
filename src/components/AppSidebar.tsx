@@ -12,7 +12,7 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar';
 import type { RootState } from '@/store/store';
-import { Plus } from 'lucide-react';
+import { Plus, Zap, Battery, Clock } from 'lucide-react';
 import { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -56,10 +56,12 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               size='lg'
-              className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
+              className='group data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
+              tooltip='OCPP Simulator'
             >
-              <div className='w-full flex items-center'>
-               <span className='text-2xl font-bold'>OCPP Simulator</span>
+              <div className='w-full flex items-center gap-2'>
+                <Zap className='h-6 w-6' />
+                <span className='text-2xl font-bold group-data-[state=collapsed]:hidden'>OCPP Simulator</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -82,20 +84,19 @@ export function AppSidebar() {
           {order.map((id) => (
             <SidebarMenuItem key={id}>
               <SidebarMenuButton
-                className='cursor-pointer'
+                className='group cursor-pointer'
                 onClick={() => navigate(`/cp/${id}`)}
+                tooltip={items[id]?.label || id}
               >
                 <span className='inline-flex items-center gap-2'>
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      items[id]?.status === 'connected'
-                        ? 'bg-green-500'
-                        : items[id]?.status === 'connecting'
-                        ? 'bg-yellow-500'
-                        : 'bg-slate-400'
-                    }`}
-                  />
-                  {items[id]?.label || id}
+                  {items[id]?.status === 'connected' ? (
+                    <Zap className='h-4 w-4 text-green-500' />
+                  ) : items[id]?.status === 'connecting' ? (
+                    <Clock className='h-4 w-4 text-yellow-500' />
+                  ) : (
+                    <Battery className='h-4 w-4 text-slate-400' />
+                  )}
+                  <span className='group-data-[state=collapsed]:hidden'>{items[id]?.label || id}</span>
                 </span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -108,11 +109,11 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip='New Connection'
-              className='cursor-pointer flex items-center gap-2'
+              className='group cursor-pointer flex items-center gap-2'
               onClick={() => setCpSheetOpen(true)}
             >
               <Plus className='w-4 h-4' />
-              <span>New Connection</span>
+              <span className='group-data-[state=collapsed]:hidden'>New Connection</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

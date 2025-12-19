@@ -268,12 +268,13 @@ export function connectWs(
                 sendCall: (action: string, payload: any) =>
                   callAction(id, action, payload),
                 getActiveConnectorId: () =>
-                  store.getState().ocpp.items[id]?.runtime?.connectorId,
+                  store.getState().ocpp.items[id]?.runtime?.activeConnectorId || 1,
                 getTransactionId: () =>
-                  store.getState().ocpp.items[id]?.runtime?.transactionId,
+                  store.getState().ocpp.items[id]?.runtime?.connectors?.find(c => c.id === (store.getState().ocpp.items[id]?.runtime?.activeConnectorId || 1))?.transactionId,
                 getBattery: () => {
                   try {
-                    const st = getMeterForCp(id)?.getState()
+                    const activeConn = store.getState().ocpp.items[id]?.runtime?.activeConnectorId || 1
+                    const st = getMeterForCp(id)?.getState(activeConn)
                     if (!st) return undefined
                     return { soc: st.socPct, currentA: st.currentA, energyWh: st.energyWh }
                   } catch {

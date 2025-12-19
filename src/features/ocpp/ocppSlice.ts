@@ -1,5 +1,5 @@
 import { normalizeDeviceSettings, normalizeOcppConfiguration } from '@/constants/chargePointDefaults'
-import type { ChargePointConfiguration, DeviceSettings, OcppConfiguration } from '@/types/ocpp'
+import type { ChargePointConfiguration, DeviceSettings, OcppConfiguration, Connector } from '@/types/ocpp'
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice, nanoid } from '@reduxjs/toolkit'
 
@@ -14,9 +14,8 @@ export interface ConnectionConfig {
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected'
 
 export interface ChargePointRuntime {
-  connectorId: number
-  idTag: string
-  transactionId?: number
+  connectors: Connector[];
+  activeConnectorId?: number; // for backward compatibility or current selection
 }
 
 export interface ChargePoint {
@@ -55,6 +54,12 @@ const ocppSlice = createSlice({
         const defaultOcppConfig: OcppConfiguration = normalizeOcppConfiguration(
           partial?.chargePointConfig?.ocppConfig
         )
+        const numConnectors = defaultDeviceSettings.connectors
+        const connectors: Connector[] = Array.from({ length: numConnectors }, (_, i) => ({
+          id: i + 1,
+          status: 'Available' as const,
+          idTag: i === 0 ? 'DEMO1234' : undefined, // default idTag for first connector
+        }))
         return {
           payload: {
             id,
@@ -66,7 +71,7 @@ const ocppSlice = createSlice({
             },
             status: 'disconnected' as ConnectionStatus,
             paused: false,
-            runtime: partial?.runtime || { connectorId: 1, idTag: 'DEMO1234' },
+            runtime: partial?.runtime || { connectors },
             chargePointConfig: {
               deviceSettings: defaultDeviceSettings,
               ocppConfig: defaultOcppConfig,
@@ -109,20 +114,56 @@ const ocppSlice = createSlice({
     },
     setConnectorId(state, action: PayloadAction<{ id: string; connectorId: number }>) {
       const cp = state.items[action.payload.id]
-      if (cp) cp.runtime = { ...(cp.runtime || { idTag: 'DEMO1234', connectorId: 1 }), connectorId: action.payload.connectorId }
+      if (cp) cp.runtime = { ...(cp.runtime || { connectors: [] }), activeConnectorId: action.payload.connectorId }
     },
-    setIdTag(state, action: PayloadAction<{ id: string; idTag: string }>) {
+    setIdTag(state, action: PayloadAction<{ id: string; connectorId: number; idTag: string }>) {
       const cp = state.items[action.payload.id]
-      if (cp) cp.runtime = { ...(cp.runtime || { connectorId: 1 }), idTag: action.payload.idTag }
+      if (cp && cp.runtime?.connectors) {
+        const connector = cp.runtime.connectors.find(c => c.id === action.payload.connectorId)
+        if (connector) connector.idTag = action.payload.idTag
+      }
     },
-    setTransactionId(state, action: PayloadAction<{ id: string; transactionId?: number }>) {
+    setTransactionId(state, action: PayloadAction<{ id: string; connectorId: number; transactionId?: number }>) {
       const cp = state.items[action.payload.id]
-      if (cp) cp.runtime = { ...(cp.runtime || { connectorId: 1, idTag: 'DEMO1234' }), transactionId: action.payload.transactionId }
+      if (cp && cp.runtime?.connectors) {
+        const connector = cp.runtime.connectors.find(c => c.id === action.payload.connectorId)
+        if (connector) connector.transactionId = action.payload.transactionId
+      }
+    },
+    updateConnectorStatus(state, action: PayloadAction<{ id: string; connectorId: number; status: Connector['status'] }>) {
+      const cp = state.items[action.payload.id]
+      if (cp && cp.runtime?.connectors) {
+        const connector = cp.runtime.connectors.find(c => c.id === action.payload.connectorId)
+        if (connector) connector.status = action.payload.status
+      }
+    },
+    updateConnector(state, action: PayloadAction<{ id: string; connectorId: number; updates: Partial<Connector> }>) {
+      const cp = state.items[action.payload.id]
+      if (cp && cp.runtime?.connectors) {
+        const connector = cp.runtime.connectors.find(c => c.id === action.payload.connectorId)
+        if (connector) Object.assign(connector, action.payload.updates)
+      }
     },
     updateDeviceSettings(state, action: PayloadAction<{ id: string; deviceSettings: Partial<DeviceSettings> }>) {
       const cp = state.items[action.payload.id]
       if (cp && cp.chargePointConfig) {
+        const oldConnectors = cp.chargePointConfig.deviceSettings.connectors
         cp.chargePointConfig.deviceSettings = { ...cp.chargePointConfig.deviceSettings, ...action.payload.deviceSettings }
+        const newConnectors = cp.chargePointConfig.deviceSettings.connectors
+        if (newConnectors !== oldConnectors && cp.runtime?.connectors) {
+          if (newConnectors > oldConnectors) {
+            // Add new connectors
+            for (let i = oldConnectors + 1; i <= newConnectors; i++) {
+              cp.runtime.connectors.push({
+                id: i,
+                status: 'Available',
+              })
+            }
+          } else if (newConnectors < oldConnectors) {
+            // Remove excess connectors
+            cp.runtime.connectors = cp.runtime.connectors.filter(c => c.id <= newConnectors)
+          }
+        }
       }
     },
     updateOcppConfiguration(state, action: PayloadAction<{ id: string; ocppConfig: Partial<OcppConfiguration> }>) {
@@ -147,6 +188,8 @@ export const {
   setTransactionId,
   updateDeviceSettings,
   updateOcppConfiguration,
+  updateConnectorStatus,
+  updateConnector,
 } = ocppSlice.actions
 
 export default ocppSlice.reducer

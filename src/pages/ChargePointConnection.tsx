@@ -252,6 +252,7 @@ export default function ChargePointConnection() {
             chargingData={charging.chargingData}
             isCharging={charging.isCharging}
             chargingType={deviceSettings.acdc || 'AC'}
+            connectors={cp.runtime?.connectors}
             deviceSettings={deviceSettings}
           />
 
